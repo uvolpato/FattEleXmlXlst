@@ -647,6 +647,7 @@
   <div class="user-bar">
     <span class="header-meta">Fatturazione Elettronica</span>
     <span class="user-chip" id="userChip" style="display:none;"></span>
+    <a class="btn btn-sm" id="btnUsers" href="admin-users.html" style="display:none;">Gestione utenti</a>
     <button class="btn btn-sm" id="btnLogout" style="display:none;">Esci</button>
   </div>
 </header>
@@ -662,35 +663,6 @@
   <div class="folder-banner" id="folderBanner" data-od-id="folder-banner">
     <span>Cartella attiva:</span>
     <strong id="folderName">/</strong>
-  </div>
-
-  <!-- Admin: gestione utenti (solo super user) -->
-  <div class="users-panel" id="usersPanel" style="display:none;" data-od-id="users-panel">
-    <div class="users-panel-header">
-      <h2>Gestione utenti del programma</h2>
-    </div>
-    <form class="users-form" id="usersForm">
-      <input type="text" id="newUsername" placeholder="Nome utente" autocomplete="off" required>
-      <input type="password" id="newPassword" placeholder="Password" autocomplete="new-password" required>
-      <select id="newRole">
-        <option value="user">Utente</option>
-        <option value="admin">Super user</option>
-      </select>
-      <button class="btn btn-primary" type="submit">Crea utente</button>
-    </form>
-    <div class="users-table-wrap">
-      <table class="users-table">
-        <thead>
-          <tr>
-            <th>Utente</th>
-            <th>Ruolo</th>
-            <th>Cartella</th>
-            <th style="width:120px;">Azioni</th>
-          </tr>
-        </thead>
-        <tbody id="usersList"></tbody>
-      </table>
-    </div>
   </div>
 
   <!-- Dropzone -->
@@ -964,13 +936,8 @@ try {
   const keepLogin = document.getElementById('keepLogin');
   const userChip = document.getElementById('userChip');
   const btnLogout = document.getElementById('btnLogout');
+  const btnUsers = document.getElementById('btnUsers');
   const folderName = document.getElementById('folderName');
-  const usersPanel = document.getElementById('usersPanel');
-  const usersForm = document.getElementById('usersForm');
-  const newUsername = document.getElementById('newUsername');
-  const newPassword = document.getElementById('newPassword');
-  const newRole = document.getElementById('newRole');
-  const usersList = document.getElementById('usersList');
 
   /* ── Helpers ── */
   function formatSize(bytes) {
@@ -1017,66 +984,15 @@ try {
     if (!currentUser) {
       userChip.style.display = 'none';
       btnLogout.style.display = 'none';
+      btnUsers.style.display = 'none';
       return;
     }
     userChip.style.display = '';
     userChip.innerHTML = '<span class="role-dot' + (currentUser.role === 'admin' ? '' : ' user') + '"></span>' +
       escapeHtml(currentUser.username);
     btnLogout.style.display = '';
+    btnUsers.style.display = (currentUser.role === 'admin') ? '' : 'none';
     folderName.textContent = folderFor(currentUser.username);
-    usersPanel.style.display = (currentUser.username === SUPER_USERNAME) ? '' : 'none';
-  }
-
-  function renderUsers() {
-    const users = getUsers();
-    usersList.innerHTML = '';
-    const sorted = Object.keys(users).sort((a, b) => (a === SUPER_USERNAME ? -1 : b === SUPER_USERNAME ? 1 : a.localeCompare(b)));
-    sorted.forEach(u => {
-      const role = users[u].role === 'admin' ? 'admin' : 'user';
-      const isSuper = (u === SUPER_USERNAME);
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td>' + escapeHtml(u) + (isSuper ? ' <span class="badge badge-admin">super</span>' : '') + '</td>' +
-        '<td><span class="badge ' + (role === 'admin' ? 'badge-admin' : 'badge-user') + '">' + (role === 'admin' ? 'Super user' : 'Utente') + '</span></td>' +
-        '<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">' + escapeHtml(folderFor(u)) + '</td>' +
-        '<td></td>';
-      const tdActions = tr.querySelector('td:last-child');
-      if (isSuper) {
-        tdActions.innerHTML = '<span style="font-size:12px;color:var(--muted);">— non eliminabile —</span>';
-      } else {
-        const resetBtn = document.createElement('button');
-        resetBtn.className = 'btn btn-sm';
-        resetBtn.textContent = 'Reset pwd';
-        resetBtn.onclick = () => resetPassword(u);
-        const delBtn = document.createElement('button');
-        delBtn.className = 'btn btn-sm btn-danger';
-        delBtn.textContent = 'Elimina';
-        delBtn.onclick = async () => {
-          const ok = await showModal('Elimina utente', 'Eliminare l\'utente "' + u + '" e la sua cartella? I suoi file verranno rimossi.');
-          if (ok) {
-            const users2 = getUsers();
-            delete users2[u];
-            saveUsers(users2);
-            try { localStorage.removeItem(storeKeyFor(u)); } catch (e) { /* ignore */ }
-            renderUsers();
-            toast('Utente "' + u + '" eliminato', 'ok');
-          }
-        };
-        tdActions.appendChild(resetBtn);
-        tdActions.appendChild(delBtn);
-      }
-      usersList.appendChild(tr);
-    });
-  }
-
-  async function resetPassword(username) {
-    if (username === SUPER_USERNAME) { toast('Il super user non è modificabile', 'err'); return; }
-    const pwd = prompt('Nuova password per "' + username + '":');
-    if (!pwd) return;
-    if (pwd.length < 3) { toast('Password troppo corta (min 3 caratteri)', 'err'); return; }
-    const users = getUsers();
-    if (users[username]) { users[username].password = pwd; saveUsers(users); }
-    toast('Password di "' + username + '" aggiornata', 'ok');
   }
 
   btnTogglePwd.addEventListener('click', () => {
@@ -1096,7 +1012,6 @@ try {
       try {
         saveSession(currentUser, keepLogin.checked);
         setUserBar();
-        renderUsers();
         loadFilesForCurrentUser();
         toast('Benvenuto, ' + u, 'ok');
       } catch (err) {
@@ -1117,22 +1032,6 @@ try {
     loginPassword.type = 'password';
     keepLogin.checked = false;
     loginUsername.value = '';
-  });
-
-  usersForm.addEventListener('submit', e => {
-    e.preventDefault();
-    const u = newUsername.value.trim().toLowerCase();
-    const p = newPassword.value;
-    if (!u || !p) return;
-    if (u === SUPER_USERNAME) { toast('Nome riservato al super user', 'err'); return; }
-    const users = getUsers();
-    if (users[u]) { toast('Utente già esistente', 'err'); return; }
-    users[u] = { password: p, role: newRole.value === 'admin' ? 'admin' : 'user', createdAt: Date.now() };
-    saveUsers(users);
-    renderUsers();
-    newUsername.value = '';
-    newPassword.value = '';
-    toast('Utente "' + u + '" creato', 'ok');
   });
 
   /* ── Persistenza per-cartella ── */
@@ -1739,7 +1638,6 @@ try {
       if (users[session.username]) {
         currentUser = { username: session.username, role: users[session.username].role };
         setUserBar();
-        renderUsers();
         loadFilesForCurrentUser();
         showApp();
         return;

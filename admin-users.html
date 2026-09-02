@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestione utenti — XML → Excel</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --fg: #212529;
+    --muted: #6c757d;
+    --border: #dee2e6;
+    --accent: #0d6efd;
+    --accent-light: #cfe2ff;
+    --danger: #dc3545;
+    --danger-light: #f8d7da;
+    --warn: #ffc107;
+    --warn-light: #fff3cd;
+    --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, monospace;
+    --radius: 0.375rem;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── HEADER ── */
+  .app-header {
+    background: #212529;
+    border-bottom: 1px solid #2b3035;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .app-logo { height: 34px; width: auto; border-radius: 4px; object-fit: contain; display: block; }
+  .app-header h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: #ffffff; }
+  .app-header h1 span { color: #6ea8fe; }
+  .user-bar { display: flex; align-items: center; gap: 10px; }
+  .user-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; color: var(--fg);
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 99px; padding: 4px 12px;
+  }
+  .user-chip .role-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--accent); }
+
+  /* ── MAIN ── */
+  .app-main { max-width: 820px; margin: 0 auto; padding: 32px 24px; }
+  .page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); color: var(--fg); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s; font-family: var(--font-body);
+    text-decoration: none;
+  }
+  .btn:hover { background: var(--bg); }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { filter: brightness(0.9); }
+  .btn-danger { color: var(--danger); border-color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-light); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+  /* ── USERS PANEL ── */
+  .users-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .users-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 8px;
+  }
+  .users-panel-header h2 { font-size: 14px; font-weight: 600; }
+  .users-form {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  .users-form input, .users-form select {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 13px; font-family: var(--font-body); background: var(--surface); color: var(--fg);
+  }
+  .users-form input:focus, .users-form select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light);
+  }
+  .users-form input[name="username"] { min-width: 160px; flex: 1; }
+  .users-table-wrap { overflow-x: auto; }
+  .users-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .users-table th {
+    text-align: left; padding: 9px 14px; font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  .users-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .users-table tr:last-child td { border-bottom: none; }
+  .users-table tr:hover td { background: #f8f9fa; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+    border-radius: 99px; font-size: 11px; font-weight: 600;
+  }
+  .badge-admin { background: var(--accent-light); color: #084298; }
+  .badge-user { background: #e9ecef; color: #495057; }
+  .user-actions { display: flex; gap: 6px; align-items: center; }
+
+  /* ── FIELD (per modal reset password) ── */
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .field input {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+    border-radius: var(--radius); font-size: 14px; font-family: var(--font-body);
+    background: var(--surface); color: var(--fg);
+  }
+  .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 300;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  }
+  .modal h3 { font-size: 15px; margin-bottom: 8px; }
+  .modal p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* ── TOAST ── */
+  .toast-container {
+    position: fixed; bottom: 24px; right: 24px; z-index: 400;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    padding: 10px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,.15); animation: toastIn 0.25s ease-out;
+  }
+  .toast-ok { background: var(--accent); color: #fff; }
+  .toast-err { background: var(--danger); color: #fff; }
+  .toast-info { background: var(--fg); color: var(--surface); }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── ACCESS DENIED ── */
+  .denied-screen {
+    position: fixed; inset: 0; z-index: 400; background: var(--bg);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .denied-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.08); width: 100%; max-width: 400px;
+    padding: 32px; text-align: center;
+  }
+  .denied-card h2 { font-size: 18px; margin-bottom: 8px; }
+  .denied-card p { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+
+  @media (max-width: 480px) {
+    .app-header { padding: 10px 16px; }
+    .app-main { padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Access denied -->
+<div class="denied-screen" id="deniedScreen" data-od-id="denied-screen" style="display:none;">
+  <div class="denied-card">
+    <h2>Accesso negato</h2>
+    <p>Questa area è riservata agli amministratori. Accedi come admin per gestire gli utenti.</p>
+    <a class="btn btn-primary" href="index.html" style="justify-content:center;">Torna all'app</a>
+  </div>
+</div>
+
+<!-- Admin app -->
+<div id="appRoot" style="display:none;">
+  <header class="app-header" data-od-id="admin-header">
+    <div class="brand" data-od-id="brand">
+      <img src="logo.jpg" alt="" class="app-logo" data-od-id="app-logo">
+      <h1><span>XML</span> → Excel</h1>
+    </div>
+    <div class="user-bar">
+      <span class="user-chip" id="userChip"></span>
+      <a class="btn btn-sm" href="index.html">Torna all'app</a>
+      <button class="btn btn-sm" id="btnLogout">Esci</button>
+    </div>
+  </header>
+
+  <main class="app-main" data-od-id="admin-main">
+    <h1 class="page-title" data-od-id="page-title">Gestione utenti</h1>
+    <p class="page-sub">Crea, ripristina la password o elimina gli utenti del programma. Ogni utente ha una cartella dedicata per i propri file.</p>
+
+    <div class="users-panel" data-od-id="users-panel">
+      <div class="users-panel-header">
+        <h2>Utenti del programma</h2>
+      </div>
+      <form class="users-form" id="usersForm" data-od-id="users-form">
+        <input type="text" name="username" id="newUsername" placeholder="Nome utente" autocomplete="off" required>
+        <input type="password" id="newPassword" placeholder="Password" autocomplete="new-password" required>
+        <select id="newRole">
+          <option value="user">Utente</option>
+          <option value="admin">Amministratore</option>
+        </select>
+        <button class="btn btn-primary" type="submit">Crea utente</button>
+      </form>
+      <div class="users-table-wrap">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Utente</th>
+              <th>Ruolo</th>
+              <th>Cartella</th>
+              <th style="width:150px;">Azioni</th>
+            </tr>
+          </thead>
+          <tbody id="usersList"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Confirm delete modal -->
+<div class="modal-overlay" id="confirmOverlay">
+  <div class="modal">
+    <h3 id="confirmTitle">Elimina utente</h3>
+    <p id="confirmDesc">Eliminare l'utente e la sua cartella?</p>
+    <div class="modal-actions">
+      <button class="btn btn-sm" id="confirmCancel">Annulla</button>
+      <button class="btn btn-danger btn-sm" id="confirmOk">Elimina</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset password modal -->
+<div class="modal-overlay" id="resetOverlay">
+  <div class="modal">
+    <h3 id="resetTitle">Reset password</h3>
+    <p id="resetDesc">Nuova password per l'utente:</p>
+    <div class="field">
+      <label for="resetPasswordInput">Nuova password</label>
+      <input type="password" id="resetPasswordInput" placeholder="min 3 caratteri" autocomplete="new-password">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-sm" id="resetCancel">Annulla</button>
+      <button class="btn btn-primary btn-sm" id="resetOk">Salva</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ── Auth (stesse chiavi di index.html) ── */
+  const SUPER_USERNAME = 'admin';
+  const SUPER_PASSWORD = 'admin';
+  const STORE_USERS = 'od_fix_users';
+  const STORE_SESSION = 'od_fix_session';
+  const FILE_PREFIX = 'od_fix_files_';
+
+  function loadUsers() {
+    try {
+      const raw = localStorage.getItem(STORE_USERS);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+    return {};
+  }
+  function saveUsers(users) {
+    try { localStorage.setItem(STORE_USERS, JSON.stringify(users)); } catch (e) { /* ignore */ }
+  }
+  function getUsers() {
+    const users = loadUsers();
+    if (!users || typeof users !== 'object') {
+      return { [SUPER_USERNAME]: { password: SUPER_PASSWORD, role: 'admin', createdAt: Date.now() } };
+    }
+    users[SUPER_USERNAME] = { password: SUPER_PASSWORD, role: 'admin', createdAt: users[SUPER_USERNAME] ? users[SUPER_USERNAME].createdAt : Date.now() };
+    saveUsers(users);
+    return users;
+  }
+
+  function getStore(name) {
+    try { return name === 'session' ? window.sessionStorage : window.localStorage; } catch (e) { return null; }
+  }
+  function safeGet(name, key) {
+    try {
+      const store = getStore(name);
+      if (!store) return null;
+      const raw = store.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function safeSet(name, key, val) {
+    try {
+      const store = getStore(name);
+      if (!store) return;
+      if (val === null) store.removeItem(key);
+      else store.setItem(key, JSON.stringify(val));
+    } catch (e) { /* ignore */ }
+  }
+  function loadSession() {
+    const persistent = safeGet('local', STORE_SESSION);
+    if (persistent) return persistent;
+    return safeGet('session', STORE_SESSION);
+  }
+  function folderFor(username) { return '/' + username + '/'; }
+  function storeKeyFor(username) { return FILE_PREFIX + username; }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  /* ── DOM refs ── */
+  const deniedScreen = document.getElementById('deniedScreen');
+  const appRoot = document.getElementById('appRoot');
+  const userChip = document.getElementById('userChip');
+  const btnLogout = document.getElementById('btnLogout');
+  const usersForm = document.getElementById('usersForm');
+  const newUsername = document.getElementById('newUsername');
+  const newPassword = document.getElementById('newPassword');
+  const newRole = document.getElementById('newRole');
+  const usersList = document.getElementById('usersList');
+  const toastContainer = document.getElementById('toastContainer');
+
+  const confirmOverlay = document.getElementById('confirmOverlay');
+  const confirmTitle = document.getElementById('confirmTitle');
+  const confirmDesc = document.getElementById('confirmDesc');
+  const confirmCancel = document.getElementById('confirmCancel');
+  const confirmOk = document.getElementById('confirmOk');
+
+  const resetOverlay = document.getElementById('resetOverlay');
+  const resetTitle = document.getElementById('resetTitle');
+  const resetDesc = document.getElementById('resetDesc');
+  const resetPasswordInput = document.getElementById('resetPasswordInput');
+  const resetCancel = document.getElementById('resetCancel');
+  const resetOk = document.getElementById('resetOk');
+
+  let currentUser = null;
+
+  function toast(msg, type) {
+    const el = document.createElement('div');
+    el.className = 'toast toast-' + type;
+    el.textContent = msg;
+    toastContainer.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; }, 2500);
+    setTimeout(() => el.remove(), 2800);
+  }
+
+  /* ── Modals ── */
+  let confirmResolve = null;
+  function showConfirm(title, desc) {
+    confirmTitle.textContent = title;
+    confirmDesc.textContent = desc;
+    confirmOverlay.classList.add('open');
+    return new Promise(resolve => { confirmResolve = resolve; });
+  }
+  confirmCancel.onclick = () => { confirmOverlay.classList.remove('open'); if (confirmResolve) confirmResolve(false); };
+  confirmOk.onclick = () => { confirmOverlay.classList.remove('open'); if (confirmResolve) confirmResolve(true); };
+
+  let resetResolve = null;
+  function showReset(title, desc) {
+    resetTitle.textContent = title;
+    resetDesc.textContent = desc;
+    resetPasswordInput.value = '';
+    resetOverlay.classList.add('open');
+    return new Promise(resolve => { resetResolve = resolve; });
+  }
+  resetCancel.onclick = () => { resetOverlay.classList.remove('open'); if (resetResolve) resetResolve(null); };
+  resetOk.onclick = () => { resetOverlay.classList.remove('open'); if (resetResolve) resetResolve(resetPasswordInput.value); };
+
+  /* ── Render ── */
+  function renderUsers() {
+    const users = getUsers();
+    usersList.innerHTML = '';
+    const sorted = Object.keys(users).sort((a, b) => (a === SUPER_USERNAME ? -1 : b === SUPER_USERNAME ? 1 : a.localeCompare(b)));
+    sorted.forEach(u => {
+      const role = users[u].role === 'admin' ? 'admin' : 'user';
+      const isSuper = (u === SUPER_USERNAME);
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + escapeHtml(u) + (isSuper ? ' <span class="badge badge-admin">super</span>' : '') + '</td>' +
+        '<td><span class="badge ' + (role === 'admin' ? 'badge-admin' : 'badge-user') + '">' + (role === 'admin' ? 'Amministratore' : 'Utente') + '</span></td>' +
+        '<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">' + escapeHtml(folderFor(u)) + '</td>' +
+        '<td></td>';
+      const tdActions = tr.querySelector('td:last-child');
+      if (isSuper) {
+        tdActions.innerHTML = '<span style="font-size:12px;color:var(--muted);">— non eliminabile —</span>';
+      } else {
+        const resetBtn = document.createElement('button');
+        resetBtn.className = 'btn btn-sm';
+        resetBtn.textContent = 'Reset pwd';
+        resetBtn.onclick = () => resetPassword(u);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-sm btn-danger';
+        delBtn.textContent = 'Elimina';
+        delBtn.onclick = async () => {
+          const ok = await showConfirm('Elimina utente', 'Eliminare l\'utente "' + u + '" e la sua cartella? I suoi file verranno rimossi.');
+          if (ok) {
+            const users2 = getUsers();
+            delete users2[u];
+            saveUsers(users2);
+            try { localStorage.removeItem(storeKeyFor(u)); } catch (e) { /* ignore */ }
+            renderUsers();
+            toast('Utente "' + u + '" eliminato', 'ok');
+          }
+        };
+        tdActions.appendChild(resetBtn);
+        tdActions.appendChild(delBtn);
+      }
+      usersList.appendChild(tr);
+    });
+  }
+
+  async function resetPassword(username) {
+    const pwd = await showReset('Reset password', 'Nuova password per "' + username + '":');
+    if (!pwd) return;
+    if (pwd.length < 3) { toast('Password troppo corta (min 3 caratteri)', 'err'); return; }
+    const users = getUsers();
+    if (users[username]) { users[username].password = pwd; saveUsers(users); }
+    toast('Password di "' + username + '" aggiornata', 'ok');
+  }
+
+  /* ── Events ── */
+  usersForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const u = newUsername.value.trim().toLowerCase();
+    const p = newPassword.value;
+    if (!u || !p) return;
+    if (u === SUPER_USERNAME) { toast('Nome riservato al super user', 'err'); return; }
+    const users = getUsers();
+    if (users[u]) { toast('Utente già esistente', 'err'); return; }
+    users[u] = { password: p, role: newRole.value === 'admin' ? 'admin' : 'user', createdAt: Date.now() };
+    saveUsers(users);
+    renderUsers();
+    newUsername.value = '';
+    newPassword.value = '';
+    toast('Utente "' + u + '" creato', 'ok');
+  });
+
+  btnLogout.addEventListener('click', () => {
+    safeSet('local', STORE_SESSION, null);
+    safeSet('session', STORE_SESSION, null);
+    window.location.href = 'index.html';
+  });
+
+  /* ── Init: accesso riservato all'admin ── */
+  function showAdmin() {
+    deniedScreen.style.display = 'none';
+    appRoot.style.display = '';
+    userChip.innerHTML = '<span class="role-dot"></span>' + escapeHtml(currentUser.username);
+    renderUsers();
+  }
+  function showDenied() {
+    appRoot.style.display = 'none';
+    deniedScreen.style.display = 'flex';
+  }
+
+  (function init() {
+    const session = loadSession();
+    const users = getUsers();
+    if (session && session.username && users[session.username]) {
+      currentUser = { username: session.username, role: users[session.username].role };
+      if (currentUser.role === 'admin') {
+        showAdmin();
+        return;
+      }
+    }
+    showDenied();
+  })();
+
+})();
+</script>
+</body>
+</html>
