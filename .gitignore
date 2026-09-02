@@ -1,0 +1,5 @@
+node_modules/
+.od-skills/
+*.artifact.json
+.DS_Store
+Thumbs.db
