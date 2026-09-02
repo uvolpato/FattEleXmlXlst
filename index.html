@@ -342,7 +342,8 @@
     justify-content: center;
   }
   .modal-overlay.open { display: flex; }
-  .modal {
+  .modal-card {
+    display: block;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -351,8 +352,8 @@
     width: 90%;
     box-shadow: 0 8px 32px rgba(0,0,0,.2);
   }
-  .modal h3 { font-size: 15px; margin-bottom: 8px; }
-  .modal p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .modal-card h3 { font-size: 15px; margin-bottom: 8px; }
+  .modal-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
   /* ── LOGIN / AUTH ── */
@@ -741,7 +742,7 @@
 
 <!-- Confirm modal -->
 <div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
+  <div class="modal-card">
     <h3 id="modalTitle">Conferma eliminazione</h3>
     <p id="modalDesc">Sei sicuro di voler eliminare i file selezionati?</p>
     <div class="modal-actions">

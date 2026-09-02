@@ -137,12 +137,13 @@
     display: none; align-items: center; justify-content: center;
   }
   .modal-overlay.open { display: flex; }
-  .modal {
+  .modal-card {
+    display: block;
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.2);
   }
-  .modal h3 { font-size: 15px; margin-bottom: 8px; }
-  .modal p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .modal-card h3 { font-size: 15px; margin-bottom: 8px; }
+  .modal-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
   /* ── TOAST ── */
@@ -223,7 +224,7 @@
 
 <!-- Confirm delete modal -->
 <div class="modal-overlay" id="confirmOverlay">
-  <div class="modal">
+  <div class="modal-card">
     <h3 id="confirmTitle">Elimina utente</h3>
     <p id="confirmDesc">Eliminare l'utente e la sua cartella?</p>
     <div class="modal-actions">
@@ -235,7 +236,7 @@
 
 <!-- Reset password modal -->
 <div class="modal-overlay" id="resetOverlay">
-  <div class="modal">
+  <div class="modal-card">
     <h3 id="resetTitle">Reset password</h3>
     <p id="resetDesc">Nuova password per l'utente:</p>
     <div class="field">
