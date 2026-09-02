@@ -248,6 +248,15 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 - Toast di errore per file non validi
 - Progress bar durante il caricamento multiplo
 
+### 5.6 Gestione utenti (pagina admin separata)
+
+- La gestione degli utenti è una **pagina separata** (`/admin/users`), non più un pannello dentro la home.
+- Raggiungibile dal link **"Gestione utenti"** nella navbar, visibile **solo** agli utenti con ruolo `admin`.
+- **Guard lato client**: la pagina controlla la sessione all'avvio e mostra "Accesso negato" (con link di ritorno) se l'utente non è autenticato o non ha ruolo `admin`.
+- Funzionalità: creazione utente (username, password, ruolo), reset password (tramite modal, non più `prompt`), eliminazione utente (con conferma). L'eliminazione rimuove anche la cartella file dell'utente.
+- Il super user `admin` è sempre presente in lista, non eliminabile e con password non modificabile dal pannello.
+- Prototipo: la pagina corrisponde a un file HTML separato (`admin-users.html`), collegato dalla home tramite link mostrato solo agli admin.
+
 ## 6. Design directions
 
 ### 6.1 UI framework
@@ -277,6 +286,7 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 - **Contenuto** su sfondo `#f5f6f8` con card a superficie bianca
 - **Tabelle**: header sticky (`position:sticky; top:0; background:#e9ecef`)
 - **Login**: card centrata (max-width ~360px), password con toggle occhio, checkbox "Resta collegato", pulsante primario a tutta larghezza
+- **Pagina admin utenti**: stessa struttura (navbar scura + contenuto su sfondo `#f5f6f8`), card unica con form di creazione e tabella utenti; schermata "Accesso negato" centrata quando l'utente non è admin
 - **Mobile**: layout verticale stack, dropzone in alto, elenco sotto
 
 ## 7. Stack tecnologico
@@ -325,8 +335,9 @@ data/
 - **Password**: hash con `bcrypt` (libreria `bcryptjs`, puro JavaScript, nessuna dipendenza nativa); le password in chiaro non vengono mai salvate.
 - **Sessione**: cookie httpOnly firmato. `jose` (JWT) per firmare un token `{ username, role }`; in alternativa `iron-session` (cookie cifrato lato server).
 - **Super user**: voce fissa non eliminabile e con password non modificabile dal pannello; può creare/eliminare gli altri utenti.
-- **Ruoli**: `admin` (super user) e `user`.
-- **Guard**: funzioni `requireAuth` e `requireAdmin` applicate a tutte le route protette.
+- **Ruoli**: `admin` e `user`. Il super user `admin` è una voce fissa con ruolo `admin`; anche altri utenti possono essere creati con ruolo `admin`.
+- **Gestione utenti su pagina separata**: l'interfaccia di gestione utenti è su una pagina dedicata (`/admin/users`), protetta dal guard `requireAdmin`; non è più un pannello nella home (vedi §5.6).
+- **Guard**: funzioni `requireAuth` e `requireAdmin` applicate a tutte le route protette (incluse le pagine admin).
 - **Cartella per utente**: a ogni utente corrisponde `data/uploads/{username}/` (vedi §8).
 
 ## 9. Non incluso (v1)

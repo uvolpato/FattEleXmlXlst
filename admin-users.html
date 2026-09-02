@@ -162,19 +162,6 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* ── ACCESS DENIED ── */
-  .denied-screen {
-    position: fixed; inset: 0; z-index: 400; background: var(--bg);
-    display: flex; align-items: center; justify-content: center; padding: 24px;
-  }
-  .denied-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.08); width: 100%; max-width: 400px;
-    padding: 32px; text-align: center;
-  }
-  .denied-card h2 { font-size: 18px; margin-bottom: 8px; }
-  .denied-card p { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
-
   @media (max-width: 480px) {
     .app-header { padding: 10px 16px; }
     .app-main { padding: 24px 16px; }
@@ -182,15 +169,6 @@
 </style>
 </head>
 <body>
-
-<!-- Access denied -->
-<div class="denied-screen" id="deniedScreen" data-od-id="denied-screen" style="display:none;">
-  <div class="denied-card">
-    <h2>Accesso negato</h2>
-    <p>Questa area è riservata agli amministratori. Accedi come admin per gestire gli utenti.</p>
-    <a class="btn btn-primary" href="index.html" style="justify-content:center;">Torna all'app</a>
-  </div>
-</div>
 
 <!-- Admin app -->
 <div id="appRoot" style="display:none;">
@@ -230,7 +208,7 @@
               <th>Utente</th>
               <th>Ruolo</th>
               <th>Cartella</th>
-              <th style="width:150px;">Azioni</th>
+              <th style="width:110px;">Azioni</th>
             </tr>
           </thead>
           <tbody id="usersList"></tbody>
@@ -282,6 +260,8 @@
   const STORE_SESSION = 'od_fix_session';
   const FILE_PREFIX = 'od_fix_files_';
 
+  let usersCache = null;
+
   function loadUsers() {
     try {
       const raw = localStorage.getItem(STORE_USERS);
@@ -290,28 +270,18 @@
     return {};
   }
   function saveUsers(users) {
+    usersCache = users;
     try { localStorage.setItem(STORE_USERS, JSON.stringify(users)); } catch (e) { /* ignore */ }
   }
   function getUsers() {
-    const users = loadUsers();
-    if (!users || typeof users !== 'object') {
-      return { [SUPER_USERNAME]: { password: SUPER_PASSWORD, role: 'admin', createdAt: Date.now() } };
-    }
-    users[SUPER_USERNAME] = { password: SUPER_PASSWORD, role: 'admin', createdAt: users[SUPER_USERNAME] ? users[SUPER_USERNAME].createdAt : Date.now() };
-    saveUsers(users);
-    return users;
+    if (!usersCache) usersCache = loadUsers();
+    if (!usersCache || typeof usersCache !== 'object') usersCache = {};
+    usersCache[SUPER_USERNAME] = { password: SUPER_PASSWORD, role: 'admin', createdAt: usersCache[SUPER_USERNAME] ? usersCache[SUPER_USERNAME].createdAt : Date.now() };
+    return usersCache;
   }
 
   function getStore(name) {
     try { return name === 'session' ? window.sessionStorage : window.localStorage; } catch (e) { return null; }
-  }
-  function safeGet(name, key) {
-    try {
-      const store = getStore(name);
-      if (!store) return null;
-      const raw = store.getItem(key);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
   }
   function safeSet(name, key, val) {
     try {
@@ -320,11 +290,6 @@
       if (val === null) store.removeItem(key);
       else store.setItem(key, JSON.stringify(val));
     } catch (e) { /* ignore */ }
-  }
-  function loadSession() {
-    const persistent = safeGet('local', STORE_SESSION);
-    if (persistent) return persistent;
-    return safeGet('session', STORE_SESSION);
   }
   function folderFor(username) { return '/' + username + '/'; }
   function storeKeyFor(username) { return FILE_PREFIX + username; }
@@ -336,7 +301,6 @@
   }
 
   /* ── DOM refs ── */
-  const deniedScreen = document.getElementById('deniedScreen');
   const appRoot = document.getElementById('appRoot');
   const userChip = document.getElementById('userChip');
   const btnLogout = document.getElementById('btnLogout');
@@ -408,16 +372,22 @@
         '<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">' + escapeHtml(folderFor(u)) + '</td>' +
         '<td></td>';
       const tdActions = tr.querySelector('td:last-child');
+      tdActions.classList.add('user-actions');
+      tdActions.style.whiteSpace = 'nowrap';
       if (isSuper) {
         tdActions.innerHTML = '<span style="font-size:12px;color:var(--muted);">— non eliminabile —</span>';
       } else {
         const resetBtn = document.createElement('button');
         resetBtn.className = 'btn btn-sm';
-        resetBtn.textContent = 'Reset pwd';
+        resetBtn.innerHTML = '<i class="bi bi-key" aria-hidden="true"></i>';
+        resetBtn.title = 'Reset password';
+        resetBtn.setAttribute('aria-label', 'Reset password di ' + u);
         resetBtn.onclick = () => resetPassword(u);
         const delBtn = document.createElement('button');
         delBtn.className = 'btn btn-sm btn-danger';
-        delBtn.textContent = 'Elimina';
+        delBtn.innerHTML = '<i class="bi bi-trash" aria-hidden="true"></i>';
+        delBtn.title = 'Elimina utente';
+        delBtn.setAttribute('aria-label', 'Elimina utente ' + u);
         delBtn.onclick = async () => {
           const ok = await showConfirm('Elimina utente', 'Eliminare l\'utente "' + u + '" e la sua cartella? I suoi file verranno rimossi.');
           if (ok) {
@@ -468,29 +438,18 @@
     window.location.href = 'index.html';
   });
 
-  /* ── Init: accesso riservato all'admin ── */
+  /* ── Init: nessun controllo di autenticazione nel prototipo ── */
   function showAdmin() {
-    deniedScreen.style.display = 'none';
     appRoot.style.display = '';
     userChip.innerHTML = '<span class="role-dot"></span>' + escapeHtml(currentUser.username);
     renderUsers();
   }
-  function showDenied() {
-    appRoot.style.display = 'none';
-    deniedScreen.style.display = 'flex';
-  }
 
   (function init() {
-    const session = loadSession();
-    const users = getUsers();
-    if (session && session.username && users[session.username]) {
-      currentUser = { username: session.username, role: users[session.username].role };
-      if (currentUser.role === 'admin') {
-        showAdmin();
-        return;
-      }
-    }
-    showDenied();
+    // Prototipo: niente auth — mostra sempre la pagina. L'accesso riservato
+    // all'admin verrà implementato a valle (lato OpenCode/Next.js).
+    currentUser = { username: SUPER_USERNAME, role: 'admin' };
+    showAdmin();
   })();
 
 })();
