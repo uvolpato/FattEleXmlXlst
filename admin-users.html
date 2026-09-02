@@ -192,14 +192,14 @@
       <div class="users-panel-header">
         <h2>Utenti del programma</h2>
       </div>
-      <form class="users-form" id="usersForm" data-od-id="users-form">
-        <input type="text" name="username" id="newUsername" placeholder="Nome utente" autocomplete="off" required>
-        <input type="password" id="newPassword" placeholder="Password" autocomplete="new-password" required>
+      <form class="users-form" id="usersForm" data-od-id="users-form" novalidate onsubmit="return false;">
+        <input type="text" name="username" id="newUsername" placeholder="Nome utente" autocomplete="off">
+        <input type="password" id="newPassword" placeholder="Password" autocomplete="new-password">
         <select id="newRole">
           <option value="user">Utente</option>
           <option value="admin">Amministratore</option>
         </select>
-        <button class="btn btn-primary" type="submit">Crea utente</button>
+        <button class="btn btn-primary" type="button" id="btnCreateUser">Crea utente</button>
       </form>
       <div class="users-table-wrap">
         <table class="users-table">
@@ -308,6 +308,7 @@
   const newUsername = document.getElementById('newUsername');
   const newPassword = document.getElementById('newPassword');
   const newRole = document.getElementById('newRole');
+  const btnCreateUser = document.getElementById('btnCreateUser');
   const usersList = document.getElementById('usersList');
   const toastContainer = document.getElementById('toastContainer');
 
@@ -357,6 +358,18 @@
   resetCancel.onclick = () => { resetOverlay.classList.remove('open'); if (resetResolve) resetResolve(null); };
   resetOk.onclick = () => { resetOverlay.classList.remove('open'); if (resetResolve) resetResolve(resetPasswordInput.value); };
 
+  // Chiude i modal cliccando sullo sfondo (equivale ad annullare)
+  confirmOverlay.addEventListener('click', e => {
+    if (e.target === confirmOverlay) { confirmOverlay.classList.remove('open'); if (confirmResolve) confirmResolve(false); }
+  });
+  resetOverlay.addEventListener('click', e => {
+    if (e.target === resetOverlay) { resetOverlay.classList.remove('open'); if (resetResolve) resetResolve(null); }
+  });
+  // Invio con Enter nel campo nuova password
+  resetPasswordInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') resetOk.click();
+  });
+
   /* ── Render ── */
   function renderUsers() {
     const users = getUsers();
@@ -379,13 +392,13 @@
       } else {
         const resetBtn = document.createElement('button');
         resetBtn.className = 'btn btn-sm';
-        resetBtn.innerHTML = '<i class="bi bi-key" aria-hidden="true"></i>';
+        resetBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>';
         resetBtn.title = 'Reset password';
         resetBtn.setAttribute('aria-label', 'Reset password di ' + u);
         resetBtn.onclick = () => resetPassword(u);
         const delBtn = document.createElement('button');
         delBtn.className = 'btn btn-sm btn-danger';
-        delBtn.innerHTML = '<i class="bi bi-trash" aria-hidden="true"></i>';
+        delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>';
         delBtn.title = 'Elimina utente';
         delBtn.setAttribute('aria-label', 'Elimina utente ' + u);
         delBtn.onclick = async () => {
@@ -416,11 +429,10 @@
   }
 
   /* ── Events ── */
-  usersForm.addEventListener('submit', e => {
-    e.preventDefault();
+  function doCreateUser() {
     const u = newUsername.value.trim().toLowerCase();
     const p = newPassword.value;
-    if (!u || !p) return;
+    if (!u || !p) { toast('Inserisci nome utente e password', 'err'); return; }
     if (u === SUPER_USERNAME) { toast('Nome riservato al super user', 'err'); return; }
     const users = getUsers();
     if (users[u]) { toast('Utente già esistente', 'err'); return; }
@@ -430,7 +442,11 @@
     newUsername.value = '';
     newPassword.value = '';
     toast('Utente "' + u + '" creato', 'ok');
-  });
+  }
+
+  btnCreateUser.addEventListener('click', doCreateUser);
+  newPassword.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doCreateUser(); } });
+  newUsername.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doCreateUser(); } });
 
   btnLogout.addEventListener('click', () => {
     safeSet('local', STORE_SESSION, null);

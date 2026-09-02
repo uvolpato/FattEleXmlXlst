@@ -613,15 +613,15 @@
       <span class="auth-logo-text"><span>XML</span> → Excel</span>
     </div>
     <div class="auth-sub">Fatturazione Elettronica — accesso utente</div>
-    <form id="loginForm">
+    <form id="loginForm" novalidate onsubmit="return false;">
       <div class="field">
         <label for="loginUsername">Nome utente</label>
-        <input type="text" id="loginUsername" autocomplete="username" required>
+        <input type="text" id="loginUsername" autocomplete="username">
       </div>
       <div class="field">
         <label for="loginPassword">Password</label>
         <div class="pwd-field">
-          <input type="password" id="loginPassword" autocomplete="current-password" required>
+          <input type="password" id="loginPassword" autocomplete="current-password">
           <button type="button" class="pwd-toggle" id="btnTogglePwd" aria-label="Mostra password" title="Mostra password">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
@@ -632,7 +632,7 @@
         Resta connesso
       </label>
       <div class="auth-error" id="loginError"></div>
-      <button class="btn btn-primary btn-block" type="submit">Accedi</button>
+      <button class="btn btn-primary btn-block" type="button" id="btnLogin">Accedi</button>
     </form>
     <div class="auth-hint">Primo accesso: utente <code>admin</code>, password <code>admin</code> · v1.3</div>
   </div>
@@ -755,14 +755,6 @@
 </div>
 
 <script>
-try {
-  var __jsProbe = document.createElement('div');
-  __jsProbe.id = 'jsProbe';
-  __jsProbe.style.cssText = 'position:fixed;bottom:6px;left:6px;z-index:99999;background:#198754;color:#fff;font:11px/1 monospace;padding:3px 7px;border-radius:4px';
-  __jsProbe.textContent = 'JS ON';
-  document.body.appendChild(__jsProbe);
-} catch (e) {}
-
 (function() {
   'use strict';
 
@@ -933,6 +925,7 @@ try {
   const loginPassword = document.getElementById('loginPassword');
   const loginError = document.getElementById('loginError');
   const btnTogglePwd = document.getElementById('btnTogglePwd');
+  const btnLogin = document.getElementById('btnLogin');
   const keepLogin = document.getElementById('keepLogin');
   const userChip = document.getElementById('userChip');
   const btnLogout = document.getElementById('btnLogout');
@@ -1001,10 +994,10 @@ try {
     loginPassword.focus();
   });
 
-  loginForm.addEventListener('submit', e => {
-    e.preventDefault();
+  function doLogin() {
     const u = loginUsername.value.trim().toLowerCase();
     const p = loginPassword.value;
+    if (!u || !p) { loginError.textContent = 'Inserisci nome utente e password'; return; }
     const users = getUsers();
     if (users[u] && users[u].password === p) {
       currentUser = { username: u, role: users[u].role };
@@ -1020,7 +1013,11 @@ try {
     } else {
       loginError.textContent = 'Credenziali non valide';
     }
-  });
+  }
+
+  btnLogin.addEventListener('click', doLogin);
+  loginPassword.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLogin(); } });
+  loginUsername.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLogin(); } });
 
   btnLogout.addEventListener('click', () => {
     currentUser = null;
