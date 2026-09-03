@@ -240,7 +240,7 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 - Conteggio riepilogativo: totale file, numero fatture, numero notifiche, numero esclusi
 - Per file con errore (corrotta/non leggibile): tooltip con messaggio di errore
 - Azioni per riga: pulsante **"Vedi XML"** (lente, presente solo quando è disponibile del contenuto XML) e pulsante di **eliminazione singola** (✕)
-- Per file classificati **"Fattura corrotta"** è presente un pulsante **"Recupera"**: tenta di ripulire/riparare l'XML del file (es. stripping della firma e degli header BER da una busta `.p7m`/`.p7s`, vedi §4.2) e di ritentare la classificazione. Nel **prototipo** il pulsante è presente ma mostra il messaggio "Funzione non disponibile nel prototipo"; l'implementazione effettiva è prevista nell'app Next.js (§9 Non incluso v1 → da spostare tra le funzionalità implementate)
+- **Non è presente** un pulsante "Recupera": se un XML risulta corrotto in modo non riparabile automaticamente all'importazione (§4.2), l'utente lo riscarica dal portale dell'Agenzia delle Entrate/SdI e lo ricarica nel sistema
 
 ### 5.3 Filtri e ricerca
 

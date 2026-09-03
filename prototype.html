@@ -1543,7 +1543,6 @@
         '<td>' + typePill(f) + '</td>' +
         '<td class="row-actions">' +
           (f.xml ? '<button class="btn btn-sm" data-xml="' + f.id + '" title="Vedi XML"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>' : '') +
-          (f.type === 'corrotta' ? '<button class="btn btn-sm" data-recover="' + f.id + '" title="Recupera file corrotto">Recupera</button>' : '') +
           '<button class="btn btn-sm btn-danger" data-del="' + f.id + '" title="Elimina">✕</button>' +
         '</td>';
       fileList.appendChild(tr);
@@ -1623,11 +1622,6 @@
       const id = parseInt(xmlBtn.dataset.xml);
       const f = files.find(x => x.id === id);
       if (f && f.xml) openXmlModal(f.fileName, f.xml);
-      return;
-    }
-    const recBtn = e.target.closest('[data-recover]');
-    if (recBtn) {
-      toast('Funzione non disponibile nel prototipo', 'info');
       return;
     }
   });
