@@ -292,6 +292,12 @@ Nell'implementazione Next.js (non nel prototipo client-side):
 ### 5.7 Visualizzazione XML del file (lente)
 
 - Ogni riga dell'elenco può avere un pulsante con **lente** ("Vedi XML"), mostrato solo quando dal file è estraibile del contenuto XML (fatture, notifiche SdI e file corrotti con marcatori FatturaPA).
+- Al click si apre una **modale ampia** che mostra il contenuto XML del file:
+  - titolo = nome file;
+  - XML **indentato** (pretty-print) in un blocco monospace **scrollabile** (verticale e orizzontale);
+  - **evidenziati i nomi dei tag** (syntax highlight minimale) su sfondo scuro stile editor;
+  - chiusura tramite pulsante "Chiudi" o click sullo sfondo.
+- Il testo XML viene conservato in memoria durante la sessione ma **non è persistito** su filesystem/localStorage (evita di appesantire lo storage con file grandi); in implementazione Next.js il contenuto verrà riletto dal file su disco al momento dell'apertura.
 
 ### 5.8 Funzionalità del prototipo da implementare in produzione
 
