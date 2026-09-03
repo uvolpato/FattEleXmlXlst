@@ -227,7 +227,15 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 - Accetta `.xml`, `.p7m`, `.p7s` e archivi `.zip`, `.tar`, `.tar.gz`, `.tgz`, `.gz` (fatture firmate digitalmente incluse)
 - Feedback visivo durante il drag (bordi evidenziati)
 - Conteggio file caricati in tempo reale
-- Gestione duplicati: avviso se un file con lo stesso nome è già caricato
+- **Gestione duplicati** (due livelli, vedi sotto)
+- **Caricamento additivo**: la dropzone resta sempre disponibile (compatto quando l'elenco è popolato) e ogni nuova selezione/drag **aggiunge** i file all'elenco esistente senza sovrascriverlo — i file si possono caricare in più lotti successivi
+- **Pulsante "Carica file"** nella toolbar, disponibile anche quando ci sono righe in tabella: apre lo stesso selettore file della dropzone
+
+**Controllo anti-duplicato** (al caricamento):
+
+- **Livello 1 — stesso nome file**: se un documento con lo stesso nome è già presente nell'elenco (per gli estratti da archivio vale il nome interno del documento, non il nome della .zip), il nuovo file viene **saltato automaticamente** con un avviso. Nessuna riga duplicata.
+- **Livello 2 — stessa fattura, nome file diverso**: dopo il parsing, se un documento ha la **stessa identità di fattura** di uno già caricato (chiave = ID SdI `IdTrasmittente-ProgressivoInvio`; per le notifiche `IdentificativoSdI`; fallback `fornitorePiva + numero + data`) ma con **nome file diverso**, viene mostrato un **dialogo di conferma** ("Possibile duplicato con *fileX*… Aggiungere comunque?"). Se l'utente conferma, il documento entra comunque in elenco (e quindi anche nell'export).
+- **Nell'export Excel** le righe non vengono rimosse: l'eventuale duplicato presente è quello che l'utente ha **confermato esplicitamente** al caricamento.
 
 ### 5.2 Elenco file
 
@@ -241,6 +249,16 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 - Per file con errore (corrotta/non leggibile): tooltip con messaggio di errore
 - Azioni per riga: pulsante **"Vedi XML"** (lente, presente solo quando è disponibile del contenuto XML) e pulsante di **eliminazione singola** (✕)
 - **Non è presente** un pulsante "Recupera": se un XML risulta corrotto in modo non riparabile automaticamente all'importazione (§4.2), l'utente lo riscarica dal portale dell'Agenzia delle Entrate/SdI e lo ricarica nel sistema
+
+### 5.2bis Persistenza dei file sul filesystem (flusso previsto — non nel prototipo)
+
+Nell'implementazione Next.js (non nel prototipo client-side):
+
+- A ogni upload, il file originale viene **salvato nella cartella dedicata dell'utente** sul filesystem (`data/uploads/{userId}/`), come da architettura §1/§3. Il file XML salvato è la sorgente di verità.
+- All'accesso, la pagina **ricarica l'elenco dei file già presenti** nella cartella dell'utente: uscendo e rientrando, l'utente ritrova i file caricati in precedenza.
+- L'utente può poi **aggiungerne di nuovi** (d&d o pulsante "Carica file") che si accumulano all'elenco già presente (§5.1 additivo).
+- Eliminazione singola/multipla/tutti: rimuove anche il file fisico dalla cartella dell'utente.
+- Il prototipo attuale mantiene i file solo in memoria (nella sessione di pagina, ricaricata dall'utente); la persistenza filesystem è demandata all'app Next.js.
 
 ### 5.3 Filtri e ricerca
 
@@ -274,12 +292,22 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 ### 5.7 Visualizzazione XML del file (lente)
 
 - Ogni riga dell'elenco può avere un pulsante con **lente** ("Vedi XML"), mostrato solo quando dal file è estraibile del contenuto XML (fatture, notifiche SdI e file corrotti con marcatori FatturaPA).
-- Al click si apre una **modale ampia** che mostra il contenuto XML del file:
-  - titolo = nome file;
-  - XML **indentato** (pretty-print) in un blocco monospace **scrollabile** (verticale e orizzontale);
-  - **evidenziati i nomi dei tag** (syntax highlight minimale) su sfondo scuro stile editor;
-  - chiusura tramite pulsante "Chiudi" o click sullo sfondo.
-- Il testo XML viene conservato in memoria durante la sessione ma **non è persistito** su filesystem/localStorage (evita di appesantire lo storage con file grandi); in implementazione Next.js il contenuto verrà riletto dal file su disco al momento dell'apertura.
+
+### 5.8 Funzionalità del prototipo da implementare in produzione
+
+Questa sezione elenca le **funzionalità** dimostrate dal prototipo che devono essere implementate lato server (Next.js). È il riferimento puntuale per replicare le funzioni, non i dettagli di demo del prototipo (toast, localStorage, login finto).
+
+| # | Funzionalità | Specifiche di implementazione in produzione (Next.js) |
+|---|---|---|
+| R1 | **Caricamento additivo**: aggiungere file all'elenco esistente senza sovrascrivere. | `POST /api/files` salva il file in `data/uploads/{userId}/` **senza** sovrascrivere quelli esistenti; l'elenco (`GET /api/files`) riflette sempre tutti i file della cartella. |
+| R2 | **Doppia via di caricamento**: drag&drop e pulsante "Carica file", entrambi disponibili anche con l'elenco già popolato. | Entrambe le vie pubblicano a `POST /api/files`; la dropzone resta visibile (in forma compatta) anche quando la tabella contiene righe. |
+| R3 | **Gestione duplicati — stesso nome file**: non caricare due file con lo stesso nome di documento. | Il server rifiuta un file il cui **nome** esiste già nella cartella utente (per gli estratti da archivio vale il nome interno del documento, non quello della .zip): nessuna riga duplicata. |
+| R4 | **Gestione duplicati — stessa fattura, nome file diverso**: riconoscere che due file con nome diverso sono la stessa fattura. | Il server confronta l'**identità fattura** (chiave = ID SdI `IdTrasmittente-ProgressivoInvio`; notifiche `IdentificativoSdI`; fallback `fornitorePiva + numero + data`) con i file già presenti. Se coincide ma il nome è diverso, l'API segnala un "probabile duplicato" e il file non viene salvato finché l'utente non conferma di volerlo aggiungere comunque. |
+| R5 | **Riprendere un duplicato** (se l'utente conferma): il documento aggiunto resta nell'elenco e quindi anche nell'export Excel. | Nessuna rimozione forzata in export: un duplicato presente è quello **confermato** dall'utente al caricamento. |
+| R6 | **Chiave di identità fattura** (`invoiceKey`). | Implementare una funzione server (es. `utils/invoiceKey.ts`) che calcola la medesima chiave usata nel controllo duplicati (R4). |
+| R7 | **Export Excel**: solo fatture elettroniche valide, 24 colonne. | `GET /api/export` genera l'.xls (SheetJS) dalle fatture valide della cartella utente, allineate al modello ReportFattureRicevute (vedi §4.5/§4.6). |
+
+> Nota: il prototipo è **client-only**; in produzione tutta la logica di business (salvataggio file, estrazione BER-DER, parsing, classificazione, gestione duplicati, export) è eseguita **lato server**. Queste righe definiscono le funzionalità da implementare; i dettagli di presentazione del prototipo (toast, modal di conferma, localStorage) non sono vincolanti e in producción vengono realizzati secondo il design UI dell'app Next.js.
 
 ## 6. Design directions
 
@@ -353,6 +381,12 @@ data/
 | POST | `/api/auth/logout` | Invalida la sessione |
 | POST | `/api/auth/change-password` | Cambio password (verifica della vecchia password) |
 | GET/POST/DELETE | `/api/users` | Gestione utenti (solo admin): crea / elimina / reset password |
+
+**Risposta di `POST /api/files` in caso di duplicati** (vedi §5.8 R3/R4):
+
+- **Stesso nome file**: il server non salva il file e risponde con un esito per-row di tipo `duplicateName` (il client mostra "salta: file con lo stesso nome già caricato").
+- **Stessa fattura, nome diverso**: il server rileva la potenziale identità ma **non** salva finché il client non conferma; l'API espone un esito per-row `possibleDuplicate` con il nome del file già presente, e il client mostra il dialogo "Possibile duplicato". Solo a conferma avvenuta l'upload del file viene effettivamente salvato (seconda chiamata esplicita di conferma o parametro `force`).
+- La risposta complessiva include i conteggi `{ ok, esclusi, duplicati }` per il toast di riepilogo (§5.8 R5).
 
 ### Autenticazione e utenti (senza database)
 

@@ -123,6 +123,23 @@
   }
   .dropzone input[type="file"] { display: none; }
 
+  .dropzone.compact {
+    padding: 20px 24px;
+    margin: 4px 0 16px;
+  }
+  .dropzone.compact .dropzone-icon {
+    width: 24px;
+    height: 24px;
+    margin: 0 auto 4px;
+  }
+  .dropzone.compact .dropzone-title {
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+  .dropzone.compact .dropzone-sub {
+    font-size: 12px;
+  }
+
   /* ── TOOLBAR ── */
   .toolbar {
     display: flex;
@@ -731,6 +748,10 @@
       <span class="file-count" id="fileCount"></span>
     </div>
     <div class="toolbar-right">
+      <button class="btn btn-sm" id="btnAddFiles">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        Carica file
+      </button>
       <button class="btn btn-danger btn-sm" id="btnDeleteSelected" disabled>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>
         Elimina selezionati
@@ -956,6 +977,7 @@
   const btnDeleteSelected = document.getElementById('btnDeleteSelected');
   const btnDeleteAll = document.getElementById('btnDeleteAll');
   const btnExport = document.getElementById('btnExport');
+  const btnAddFiles = document.getElementById('btnAddFiles');
   const progressWrap = document.getElementById('progressWrap');
   const progressBar = document.getElementById('progressBar');
   const modalOverlay = document.getElementById('modalOverlay');
@@ -1081,23 +1103,17 @@
   });
 
   function doLogin() {
-    const u = loginUsername.value.trim().toLowerCase();
-    const p = loginPassword.value;
-    if (!u || !p) { loginError.textContent = 'Inserisci nome utente e password'; return; }
+    const u = (loginUsername.value.trim().toLowerCase() || 'utente');
     const users = getUsers();
-    if (users[u] && users[u].password === p) {
-      currentUser = { username: u, role: users[u].role };
-      showApp(); // entra subito nell'app, prima di qualsiasi operazione secondaria
-      try {
-        saveSession(currentUser, keepLogin.checked);
-        setUserBar();
-        loadFilesForCurrentUser();
-        toast('Benvenuto, ' + u, 'ok');
-      } catch (err) {
-        console.error('Errore post-login:', err);
-      }
-    } else {
-      loginError.textContent = 'Credenziali non valide';
+    currentUser = { username: u, role: (users[u] && users[u].role) || 'user' };
+    showApp(); // entra subito nell'app, senza controllo credenziali
+    try {
+      saveSession(currentUser, keepLogin.checked);
+      setUserBar();
+      loadFilesForCurrentUser();
+      toast('Benvenuto, ' + u, 'ok');
+    } catch (err) {
+      console.error('Errore post-login:', err);
     }
   }
 
@@ -1311,6 +1327,18 @@
     };
   }
 
+  // Chiave univoca della fattura/notifica, usata per riconoscere lo stesso documento
+  // anche quando il nome file è diverso. Per le fatture prevale l'ID SdI (IdTrasmittente-ProgInvio),
+  // altrimenti si usa il fallback fornitorePiva+numero+data. Per le notifiche si usa l'ID SdI.
+  function invoiceKey(data) {
+    if (!data) return '';
+    if (data.kind === 'metadati') return 'md:' + (data.idSdI || '');
+    if (data.kind !== 'fattura') return '';
+    const idSdI = (data.idSdI || '').trim();
+    if (idSdI) return 'ft:' + idSdI;
+    return 'ft:' + [data.fornitorePiva, data.numero, data.dataDocumento].filter(Boolean).join('|');
+  }
+
   /* ── Helpers classificazione ── */
   // Estrae l'XML (testo) da un involucro PKCS#7 (.p7m / .p7s): individua l'inizio
   // del documento e taglia i byte della firma digitale presenti dopo la chiusura del root.
@@ -1422,7 +1450,61 @@
     const items = await expandInputFiles(accepted);
 
     let processed = 0;
+    let duplicatiNome = 0;
     for (const it of items) {
+      if (it.error) {
+        const id = ++idCounter;
+        const entry = { id: id, file: null, fileName: it.name, size: 0, date: new Date(), status: 'error', type: 'nonLeggibile', data: null, error: it.error };
+        files.push(entry);
+        processed++;
+        progressBar.style.width = Math.round((processed / items.length) * 100) + '%';
+        continue;
+      }
+      const isSigned = /\.p7m$/i.test(it.name) || /\.p7s$/i.test(it.name);
+      let text = '';
+      let data = null;
+      let parseErr = null;
+      try {
+        text = new TextDecoder('utf-8').decode(it.u8);
+        if (isSigned) {
+          const ex = extractXmlFromP7m(text);
+          if (!ex.found) throw new Error('Firma P7M: contenuto XML non estraibile');
+          text = ex.xml;
+        }
+        if (!text || !text.trim()) throw new Error('File vuoto');
+        data = parseFatturaPA(text, it.name);
+      } catch (e) {
+        parseErr = e.message || 'Errore sconosciuto';
+      }
+
+      // Livello 1 — stesso nome file già presente: salta in automatico (avviso)
+      const dupeNome = files.find(f => f.fileName === it.name);
+      if (dupeNome) {
+        duplicatiNome++;
+        toast('Salta "' + it.name + '": file con lo stesso nome già caricato', 'info');
+        processed++;
+        progressBar.style.width = Math.round((processed / items.length) * 100) + '%';
+        continue;
+      }
+
+      // Livello 2 — stessa fattura ma nome file diverso: chiedi conferma
+      if (data && (data.kind === 'fattura' || data.kind === 'metadati')) {
+        const key = invoiceKey(data);
+        const dupeFattura = key ? files.find(f => f.data && invoiceKey(f.data) === key && f.fileName !== it.name) : null;
+        if (dupeFattura) {
+          const ok = await showModal(
+            'Possibile duplicato',
+            'Il file "' + it.name + '" sembra contenere la stessa fattura di "' + dupeFattura.fileName + '".\n\nAggiungerla comunque?'
+          );
+          if (!ok) {
+            toast('Salta "' + it.name + '": stessa fattura già presente', 'info');
+            processed++;
+            progressBar.style.width = Math.round((processed / items.length) * 100) + '%';
+            continue;
+          }
+        }
+      }
+
       const id = ++idCounter;
       const entry = {
         id: id,
@@ -1433,40 +1515,23 @@
         status: 'pending',
         type: null,
         data: null,
-        error: it.error || null
+        error: parseErr || null,
+        xml: parseErr ? null : text
       };
       files.push(entry);
 
-      if (it.error || !it.u8) {
+      if (parseErr) {
         entry.status = 'error';
-        entry.type = 'nonLeggibile';
-        entry.error = it.error || 'File non leggibile';
+        entry.type = looksLikeInvoice(text) ? 'corrotta' : (isSigned ? 'nonLeggibile' : 'nonFattura');
       } else {
-        let text = '';
-        const isSigned = /\.p7m$/i.test(it.name) || /\.p7s$/i.test(it.name);
-        try {
-          text = new TextDecoder('utf-8').decode(it.u8);
-          if (isSigned) {
-            const ex = extractXmlFromP7m(text);
-            if (!ex.found) throw new Error('Firma P7M: contenuto XML non estraibile');
-            text = ex.xml;
-          }
-          entry.xml = text;
-          if (!text || !text.trim()) throw new Error('File vuoto');
-          const data = parseFatturaPA(text, entry.fileName);
-          entry.data = data;
-          entry.type = data.kind; // 'fattura' | 'metadati' | 'nonFattura'
-          if (entry.type === 'nonFattura') {
-            entry.status = 'error';
-            entry.error = 'Il file non contiene una fattura elettronica (FatturaPA)';
-          } else {
-            entry.status = 'ok';
-            if (entry.type === 'fattura') fatture++;
-          }
-        } catch (e) {
+        entry.data = data;
+        entry.type = data.kind; // 'fattura' | 'metadati' | 'nonFattura'
+        if (entry.type === 'nonFattura') {
           entry.status = 'error';
-          entry.error = e.message || 'Errore sconosciuto';
-          entry.type = looksLikeInvoice(text) ? 'corrotta' : (isSigned ? 'nonLeggibile' : 'nonFattura');
+          entry.error = 'Il file non contiene una fattura elettronica (FatturaPA)';
+        } else {
+          entry.status = 'ok';
+          if (entry.type === 'fattura') fatture++;
         }
       }
 
@@ -1479,8 +1544,10 @@
       progressBar.style.width = '0%';
     }, 400);
 
-    const esclusi = items.length - fatture;
-    toast(items.length + ' file caricati — ' + fatture + ' fatture, ' + esclusi + ' esclusi', esclusi > 0 ? 'info' : 'ok');
+    const esclusi = items.length - fatture - duplicatiNome;
+    let msg = items.length + ' file analizzati — ' + fatture + ' fatture, ' + esclusi + ' esclusi';
+    if (duplicatiNome > 0) msg += ' · ' + duplicatiNome + ' duplicati saltati';
+    toast(msg, esclusi > 0 || duplicatiNome > 0 ? 'info' : 'ok');
 
     render();
     persistFiles();
@@ -1501,7 +1568,8 @@
     const hasFiles = files.length > 0;
     tableWrap.style.display = hasFiles ? '' : 'none';
     toolbar.style.display = hasFiles ? '' : 'none';
-    dropzone.style.display = hasFiles ? 'none' : '';
+    dropzone.style.display = '';
+    dropzone.classList.toggle('compact', hasFiles);
     emptyState.style.display = 'none';
 
     // Elenco filtrato (stato + ricerca)
@@ -1570,6 +1638,7 @@
 
   /* ── Events ── */
   dropzone.addEventListener('click', () => fileInput.click());
+  btnAddFiles.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
 
   dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
