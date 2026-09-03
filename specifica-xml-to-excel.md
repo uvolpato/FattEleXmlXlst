@@ -12,6 +12,7 @@ App full-stack **Next.js (TypeScript)** con storage su **filesystem** (nessun da
 - **Elenco gestibile**: vedere tutti i file caricati, con info sintetiche (mittente, numero, data, totale)
 - **Selezione e cancellazione**: cancellare uno, una selezione, o tutti i file
 - **Esportazione Excel**: un click genera il file Excel e avvia il download
+- **Ispezione XML**: visualizzare il contenuto XML di un file, indentato e navigabile
 
 ## 3. Utente target
 
@@ -227,6 +228,7 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 - Pulsante "Elimina tutti" (sempre visibile se ci sono file)
 - Conteggio riepilogativo: totale file, numero fatture, numero notifiche, numero esclusi
 - Per file con errore (corrotta/non leggibile): tooltip con messaggio di errore
+- Azioni per riga: pulsante **"Vedi XML"** (lente, presente solo quando è disponibile del contenuto XML) e pulsante di **eliminazione singola** (✕)
 
 ### 5.3 Filtri e ricerca
 
@@ -256,6 +258,16 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 - Funzionalità: creazione utente (username, password, ruolo), reset password (tramite modal, non più `prompt`), eliminazione utente (con conferma). L'eliminazione rimuove anche la cartella file dell'utente.
 - Il super user `admin` è sempre presente in lista, non eliminabile e con password non modificabile dal pannello.
 - Prototipo: la pagina corrisponde a un file HTML separato (`admin-users.html`), collegato dalla home tramite link mostrato solo agli admin.
+
+### 5.7 Visualizzazione XML del file (lente)
+
+- Ogni riga dell'elenco può avere un pulsante con **lente** ("Vedi XML"), mostrato solo quando dal file è estraibile del contenuto XML (fatture, notifiche SdI e file corrotti con marcatori FatturaPA).
+- Al click si apre una **modale ampia** che mostra il contenuto XML del file:
+  - titolo = nome file;
+  - XML **indentato** (pretty-print) in un blocco monospace **scrollabile** (verticale e orizzontale);
+  - **evidenziati i nomi dei tag** (syntax highlight minimale) su sfondo scuro stile editor;
+  - chiusura tramite pulsante "Chiudi" o click sullo sfondo.
+- Il testo XML viene conservato in memoria durante la sessione ma **non è persistito** su filesystem/localStorage (evita di appesantire lo storage con file grandi); in implementazione Next.js il contenuto verrà riletto dal file su disco al momento dell'apertura.
 
 ## 6. Design directions
 

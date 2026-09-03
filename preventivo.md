@@ -16,7 +16,8 @@ Web app full-stack (**Next.js + TypeScript**, storage su **filesystem senza data
 - esportare un file **Excel a 24 colonne** (modello `ReportFattureRicevute`), una riga per fattura;
 - gestire **login multi-utente** con super user non eliminabile e cartella dedicata per utente;
 - importare archivi compressi (`.zip`, `.tar`, `.tar.gz`, `.tgz`, `.gz`);
-- filtrare per stato e cercare per nome file.
+- filtrare per stato e cercare per nome file;
+- visualizzare il contenuto XML di ogni file (indentato e navigabile) tramite un pulsante dedicato nell'elenco.
 
 Riferimento tecnico: file `specifica-xml-to-excel.md` (§1–§11) e `SETUP.md`.
 
@@ -35,10 +36,11 @@ Riferimento tecnico: file `specifica-xml-to-excel.md` (§1–§11) e `SETUP.md`.
 | 1 | Analisi file XML (FatturaPA 1.2, FileMetadati SdI, buste p7m) ed estrazione del modello Excel a 24 colonne | 2 | € 80,00 | € 160,00 |
 | 2 | Redazione della specifica tecnica (`specifica-xml-to-excel.md`) | 2 | € 80,00 | € 160,00 |
 | 3 | Prototipo HTML interattivo (upload, elenco, classificazione, export, archivi, filtro/ricerca) | 3 | € 80,00 | € 240,00 |
-| 4 | Login client-side mock + gestione utenti (super user, ruoli, cartella per utente) | 1 | € 80,00 | € 80,00 |
-| 5 | Restyling Bootstrap 5 + documentazione setup/deploy | 1 | € 80,00 | € 80,00 |
-| 6 | Debug e rifiniture | 1 | € 80,00 | € 80,00 |
-| **Subtotale già svolto** | | **10** | | **€ 800,00** |
+| 4 | Login client-side mock + gestione utenti su pagina admin separata (super user, ruoli, cartella per utente) | 1 | € 80,00 | € 80,00 |
+| 5 | Visualizzatore XML per riga (lente + modale con XML indentato e syntax highlight) | 1 | € 80,00 | € 80,00 |
+| 6 | Restyling Bootstrap 5 + documentazione setup/deploy | 1 | € 80,00 | € 80,00 |
+| 7 | Debug e rifiniture (compatibilità anteprima: azioni via click, fix modali) | 1 | € 80,00 | € 80,00 |
+| **Subtotale già svolto** | | **11** | | **€ 880,00** |
 
 ## 4. Attività da svolgere (implementazione Next.js)
 
@@ -51,7 +53,7 @@ La colonna "Ore (AI)" è la stima con sviluppo assistito; "Ore (senza AI)" è il
 | 3 | API upload multipart (`busboy`) + estrazione archivi (`fflate` + `tar`) | 4 | 10 | € 220,00 |
 | 4 | Parsing FatturaPA server-side (`fast-xml-parser`) + classificazione file | 3 | 10 | € 165,00 |
 | 5 | Export Excel 24 colonne (`exceljs`) | 2 | 6 | € 110,00 |
-| 6 | Frontend UI (Bootstrap 5: pagina principale + login) | 6 | 16 | € 330,00 |
+| 6 | Frontend UI (Bootstrap 5: pagina principale + login + pagina admin utenti + visualizzatore XML) | 6 | 16 | € 330,00 |
 | 7 | Filtro/ricerca + gestione elenco e cancellazione | 2 | 5 | € 110,00 |
 | 8 | Test e rifinitura finale | 3 | 11 | € 165,00 |
 | **Subtotale da svolgere** | | **25** | **70** | **€ 1.375,00** |
@@ -60,11 +62,11 @@ La colonna "Ore (AI)" è la stima con sviluppo assistito; "Ore (senza AI)" è il
 
 | Voce | Ore | Importo |
 |---|---|---|
-| Attività già svolte | 10 | € 800,00 |
+| Attività già svolte | 11 | € 880,00 |
 | Attività da svolgere | 25 | € 1.375,00 |
-| **Totale complessivo** | **35** | **€ 2.175,00** |
+| **Totale complessivo** | **36** | **€ 2.255,00** |
 
-**Riferimento senza AI** — lo sviluppo tradizionale richiederebbe **70 ore** (≈ 2,8× le ore assistite): 70 h × € 70,00 = **€ 4.900,00**, per un totale di **€ 5.700,00** (€ 800,00 già svolto + € 4.900,00 sviluppo).
+**Riferimento senza AI** — lo sviluppo tradizionale richiederebbe **70 ore** (≈ 2,8× le ore assistite): 70 h × € 70,00 = **€ 4.900,00**, per un totale di **€ 5.780,00** (€ 880,00 già svolto + € 4.900,00 sviluppo).
 
 L'approccio assistito da AI consente un **risparmio di € 3.525,00** sul solo sviluppo (€ 4.900,00 → € 1.375,00, **−72%**).
 
