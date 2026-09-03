@@ -298,6 +298,7 @@ Nell'implementazione Next.js (non nel prototipo client-side):
   - **evidenziati i nomi dei tag** (syntax highlight minimale) su sfondo scuro stile editor;
   - chiusura tramite pulsante "Chiudi" o click sullo sfondo.
 - Il testo XML viene conservato in memoria durante la sessione ma **non è persistito** su filesystem/localStorage (evita di appesantire lo storage con file grandi); in implementazione Next.js il contenuto verrà riletto dal file su disco al momento dell'apertura.
+- **Gestione errori di visualizzazione**: la lente è disponibile anche per i **file corrotti** riconoscibili come fatture (§4.4). Se l'apertura o la renderizzazione dell'XML va in errore, **la modale non si blocca e l'app resta comunque utilizzabile**: l'errore viene gestito a livello di singola modale, mostrando un messaggio dentro la modale stessa, che resta **aperta e chiudibile** (pulsante "Chiudi" o click sullo sfondo). Un eventuale errore di visualizzazione non deve mai mandare in blocco l'intera applicazione né impedire di chiudere la finestra.
 
 ### 5.8 Funzionalità del prototipo da implementare in produzione
 
@@ -312,6 +313,7 @@ Questa sezione elenca le **funzionalità** dimostrate dal prototipo che devono e
 | R5 | **Riprendere un duplicato** (se l'utente conferma): il documento aggiunto resta nell'elenco e quindi anche nell'export Excel. | Nessuna rimozione forzata in export: un duplicato presente è quello **confermato** dall'utente al caricamento. |
 | R6 | **Chiave di identità fattura** (`invoiceKey`). | Implementare una funzione server (es. `utils/invoiceKey.ts`) che calcola la medesima chiave usata nel controllo duplicati (R4). |
 | R7 | **Export Excel**: solo fatture elettroniche valide, 24 colonne. | `GET /api/export` genera l'.xls (SheetJS) dalle fatture valide della cartella utente, allineate al modello ReportFattureRicevute (vedi §4.5/§4.6). |
+| R8 | **Visualizzazione XML (lente)** disponibile anche per i file corrotti riconoscibili come fatture, con gestione errori isolata alla singola modale | Nel rendering dei file, la lente "Vedi XML" è presente quando dal file è estraibile del contenuto XML (fatture, notifiche SdI e file corrotti con marcatori FatturaPA). Se la renderizzazione del contenuto va in errore, la modale resta aperta e chiudibile e l'app non si blocca (§5.7). |
 
 > Nota: il prototipo è **client-only**; in produzione tutta la logica di business (salvataggio file, estrazione BER-DER, parsing, classificazione, gestione duplicati, export) è eseguita **lato server**. Queste righe definiscono le funzionalità da implementare; i dettagli di presentazione del prototipo (toast, modal di conferma, localStorage) non sono vincolanti e in producción vengono realizzati secondo il design UI dell'app Next.js.
 

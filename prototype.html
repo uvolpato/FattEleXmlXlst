@@ -394,6 +394,7 @@
     max-height: 70vh; overflow: auto; white-space: pre;
   }
   .xml-view .xml-tag { color: #7ee787; }
+  .xml-view .xml-err { color: #f28b82; margin: 0; white-space: normal; }
   .row-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
 
   /* ── LOGIN / AUTH ── */
@@ -1061,7 +1062,14 @@
 
   function openXmlModal(fileName, xmlText) {
     xmlTitle.textContent = fileName;
-    xmlContent.innerHTML = highlightXml(formatXml(xmlText));
+    let html;
+    try {
+      html = highlightXml(formatXml(xmlText));
+    } catch (err) {
+      console.error('Errore formattazione XML:', err);
+      html = '<p class="xml-err">Il contenuto XML non può essere mostrato (' + escapeHtml(err.message || 'errore') + ').</p>';
+    }
+    xmlContent.innerHTML = html;
     xmlOverlay.classList.add('open');
   }
 
@@ -1516,7 +1524,7 @@
         type: null,
         data: null,
         error: parseErr || null,
-        xml: parseErr ? null : text
+        xml: (parseErr && !looksLikeInvoice(text)) ? null : text
       };
       files.push(entry);
 
