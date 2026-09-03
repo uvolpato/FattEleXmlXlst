@@ -6,7 +6,7 @@
 <title>XML → Excel — Fatturazione Elettronica</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-<script defer src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link href="vendor/jquery.dataTables.min.css" rel="stylesheet">
 <script defer src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <style>
   :root {
@@ -28,6 +28,8 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  html, body { height: 100%; }
+
   body {
     font-family: var(--font-body);
     background: var(--bg);
@@ -35,6 +37,19 @@
     min-height: 100vh;
     font-size: 14px;
     line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Contenitore applicazione: prolunga la catena flex fino al main così il corpo
+     della datatable può scrollare all'interno della finestra (header fisso in alto,
+     righe visibili, paginazione ancorata in basso). */
+  #appRoot {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
   }
 
   /* ── HEADER (navbar scura) ── */
@@ -45,9 +60,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    flex: 0 0 auto;
   }
   .brand {
     display: flex;
@@ -90,6 +103,9 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
   }
 
   /* ── DROPZONE ── */
@@ -221,6 +237,12 @@
   }
   .btn-danger:hover { background: var(--danger-light); }
   .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-test {
+    color: #fff;
+    border-color: rgba(255,255,255,.35);
+    background: rgba(255,255,255,.08);
+  }
+  .btn-test:hover { background: rgba(255,255,255,.18); }
 
   /* ── FILE TABLE ── */
   .file-table-wrap {
@@ -228,6 +250,10 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
   }
   .file-table {
     width: 100%;
@@ -380,6 +406,13 @@
   .modal-card h3 { font-size: 15px; margin-bottom: 8px; }
   .modal-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .export-sim-note { font-size: 13px; color: var(--fg); line-height: 1.5; }
+  .export-sim-tag {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .05em;
+    background: var(--accent-soft, #e7f0ff); color: var(--accent, #0d6efd);
+    border-radius: 999px; padding: 2px 10px; margin-bottom: 12px;
+  }
 
   /* ── XML VIEWER ── */
   .modal-card.modal-xl { max-width: 960px; width: 94%; }
@@ -396,6 +429,64 @@
   .xml-view .xml-tag { color: #7ee787; }
   .xml-view .xml-err { color: #f28b82; margin: 0; white-space: normal; }
   .row-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+
+  /* ── DATATABLE (componente riusabile) ── */
+  .dataTables_wrapper {
+    display: flex; flex-direction: column;
+    flex: 1 1 auto; min-height: 0;
+  }
+  .dataTables_wrapper .dataTables_filter { display: none; }         /* la ricerca esterna gestisce il filtro */
+  .dataTables_wrapper .dataTables_length { display: none; }          /* 25 righe/pagina fisse */
+  .dataTables_wrapper .dataTables_scroll {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+  }
+  .dataTables_wrapper .dataTables_scrollBody { flex: 1 1 auto; min-height: 0; overflow: auto; }
+  /* Header clone (scrollY): non deve collassare e deve rimanere allineato alle colonne */
+  .dataTables_wrapper .dataTables_scrollHead {
+    flex: 0 0 auto;
+    width: 100%;
+    overflow: hidden;
+    border-bottom: 2px solid var(--border);
+    background: var(--surface);
+  }
+  .dataTables_wrapper .dataTables_scrollHeadInner { width: 100% !important; }
+  .dataTables_wrapper .dataTables_scrollHeadInner table { width: 100% !important; }
+  .dataTables_wrapper .dt-bottom {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    font-size: 12px; color: var(--muted);
+  }
+  .dataTables_wrapper .dataTables_paginate { display: flex; gap: 4px; }
+  .dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 3px 9px; border: 1px solid var(--border);
+    border-radius: 6px; cursor: pointer; color: var(--muted);
+    background: var(--surface);
+  }
+  .dataTables_wrapper .dataTables_paginate .paginate_button:hover { background: #f1f3f5; }
+  .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+  }
+  .dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
+    opacity: 0.45; cursor: default;
+  }
+  .dt-col-num { color: var(--muted); font-family: var(--font-mono); font-size: 12px; text-align: right; }
+  .file-table thead th.sorting,
+  .file-table thead th.sorting_asc,
+  .file-table thead th.sorting_desc { cursor: pointer; position: relative; padding-right: 20px; }
+  .file-table thead th.sorting::after,
+  .file-table thead th.sorting_asc::after,
+  .file-table thead th.sorting_desc::after {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    font-family: "bootstrap-icons"; font-size: 11px; color: var(--muted);
+  }
+  .file-table thead th.sorting::after { content: "\f148"; opacity: 0.4; }   /* bi-arrow-down-up */
+  .file-table thead th.sorting_asc::after { content: "\f12d"; }             /* bi-caret-up-fill */
+  .file-table thead th.sorting_desc::after { content: "\f229"; }            /* bi-caret-down-fill */
 
   /* ── LOGIN / AUTH ── */
   .auth-screen {
@@ -701,6 +792,7 @@
     <span class="header-meta">Fatturazione Elettronica</span>
     <span class="user-chip" id="userChip" style="display:none;"></span>
     <a class="btn btn-sm" id="btnUsers" href="admin-users.html" style="display:none;">Gestione utenti</a>
+    <button class="btn btn-sm btn-test" id="btnTestData" style="display:none;">Carica dati di test</button>
     <button class="btn btn-sm" id="btnLogout" style="display:none;">Esci</button>
   </div>
 </header>
@@ -738,6 +830,7 @@
         <option value="nonFattura">Non fatture</option>
         <option value="corrotta">Corrotte</option>
         <option value="nonLeggibile">Non leggibili</option>
+        <option value="esclusi">Esclusi</option>
       </select>
       <input type="search" id="searchInput" class="filter-search" placeholder="Cerca per nome file…">
     </div>
@@ -770,10 +863,11 @@
 
   <!-- File Table -->
   <div class="file-table-wrap" id="tableWrap" style="display:none;" data-od-id="file-table">
-    <table class="file-table">
+    <table id="filesTable" class="file-table">
       <thead>
         <tr>
           <th style="width:36px;"></th>
+          <th style="width:44px;">#</th>
           <th>Nome file</th>
           <th>Dimensione</th>
           <th>Data caricamento</th>
@@ -822,6 +916,20 @@
   </div>
 </div>
 
+<!-- Export simulation modal -->
+<div class="modal-overlay" id="exportOverlay">
+  <div class="modal-card">
+    <span class="export-sim-tag">Prototipo</span>
+    <h3>Esportazione simulata</h3>
+    <p class="export-sim-note">Fase di prototipo: il report non viene scaricato. In produzione il pulsante "Esporta Excel" genererà il file <strong>ReportFattureRicevute</strong> con le <strong id="exportCount">0</strong> fatture selezionate (modello a 24 colonne).</p>
+    <div class="modal-actions">
+      <button class="btn btn-sm" id="exportClose">Ok, capito</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/jquery.min.js"></script>
+<script src="vendor/jquery.dataTables.min.js"></script>
 <script>
 (function() {
   'use strict';
@@ -968,6 +1076,7 @@
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
   const fileList = document.getElementById('fileList');
+  const filesTable = document.getElementById('filesTable');
   const tableWrap = document.getElementById('tableWrap');
   const toolbar = document.getElementById('toolbar');
   const emptyState = document.getElementById('emptyState');
@@ -991,6 +1100,9 @@
   const xmlContent = document.getElementById('xmlContent');
   const xmlClose = document.getElementById('xmlClose');
   const toastContainer = document.getElementById('toastContainer');
+  const exportOverlay = document.getElementById('exportOverlay');
+  const exportCount = document.getElementById('exportCount');
+  const exportClose = document.getElementById('exportClose');
 
   const authScreen = document.getElementById('authScreen');
   const loginForm = document.getElementById('loginForm');
@@ -1003,6 +1115,7 @@
   const userChip = document.getElementById('userChip');
   const btnLogout = document.getElementById('btnLogout');
   const btnUsers = document.getElementById('btnUsers');
+  const btnTestData = document.getElementById('btnTestData');
   const folderName = document.getElementById('folderName');
 
   /* ── Helpers ── */
@@ -1025,9 +1138,12 @@
     setTimeout(() => el.remove(), 2800);
   }
 
-  function showModal(title, desc) {
+  function showModal(title, desc, confirmLabel) {
     modalTitle.textContent = title;
     modalDesc.textContent = desc;
+    modalConfirm.textContent = confirmLabel || 'Elimina';
+    modalConfirm.classList.toggle('btn-danger', !confirmLabel);
+    modalConfirm.classList.toggle('btn-primary', !!confirmLabel);
     modalOverlay.classList.add('open');
     return new Promise(resolve => { modalResolve = resolve; });
   }
@@ -1094,12 +1210,14 @@
       userChip.style.display = 'none';
       btnLogout.style.display = 'none';
       btnUsers.style.display = 'none';
+      btnTestData.style.display = 'none';
       return;
     }
     userChip.style.display = '';
     userChip.innerHTML = '<span class="role-dot' + (currentUser.role === 'admin' ? '' : ' user') + '"></span>' +
       escapeHtml(currentUser.username);
     btnLogout.style.display = '';
+    btnTestData.style.display = '';
     btnUsers.style.display = (currentUser.role === 'admin') ? '' : 'none';
     folderName.textContent = folderFor(currentUser.username);
   }
@@ -1440,125 +1558,246 @@
     return out;
   }
 
-  /* ── File handling ── */
+  /* ── File handling (SIMULATO) ── */
+  // Il caricamento reale dei file (drop / selezione) è disattivato nel prototipo:
+  // i file XML/P7M non vengono realmente letti né parsati. Per popolare l'elenco
+  // si usa il pulsante "Carica dati di test" con il dataset fittizio.
   async function addFiles(fileListInput) {
     const arr = Array.from(fileListInput);
-    const accepted = arr.filter(f => {
+    const accettati = arr.filter(f => {
       const n = f.name.toLowerCase();
       return n.endsWith('.xml') || n.endsWith('.p7m') || n.endsWith('.p7s') || isArchiveName(f.name);
     });
-    if (accepted.length === 0) {
-      toast('Nessun file XML/P7M o archivio valido trovato', 'err');
+    if (accettati.length === 0) {
+      toast('Trascina file XML, P7M/P7S o archivi supportati (.zip, .tar, .tar.gz, .tgz, .gz)', 'err');
       return;
     }
+    // Prototipo: il caricamento reale è simulato — si compila comunque il dataset di test
+    await requestTestData();
+  }
 
-    progressWrap.classList.add('active');
-    let fatture = 0;
+  /* ── Dataset di test (fatture fittizie) ── */
+  // Genera l'XML FatturaPA 1.2 di una fattura fittizia a partire dai dati del record,
+  // fedele al formato reale emesso dallo SdI (root "FPR12", namespace + firma assenti ma struttura allineata),
+  // così la lente "Vedi XML" funziona anche sui documenti simulati.
+  function buildFatturaXml(d, f, c) {
+    const idFornitore = f.piva, idCliente = c.piva;
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<p:FatturaElettronica xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2" versione="FPR12">\n' +
+      '  <FatturaElettronicaHeader>\n' +
+      '    <DatiTrasmissione>\n' +
+      '      <IdTrasmittente><IdPaese>IT</IdPaese><IdCodice>' + idFornitore + '</IdCodice></IdTrasmittente>\n' +
+      '      <ProgressivoInvio>' + d.progressivoInvio + '</ProgressivoInvio>\n' +
+      '      <FormatoTrasmissione>FPR12</FormatoTrasmissione>\n' +
+      '      <CodiceDestinatario>' + c.codiceDestinatario + '</CodiceDestinatario>\n' +
+      (c.pec ? '      <PECDestinatario>' + c.pec + '</PECDestinatario>\n' : '') +
+      '    </DatiTrasmissione>\n' +
+      '    <CedentePrestatore>\n' +
+      '      <DatiAnagrafici>\n' +
+      '        <IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>' + idFornitore + '</IdCodice></IdFiscaleIVA>\n' +
+      '        <CodiceFiscale>' + idFornitore + '</CodiceFiscale>\n' +
+      '        <Anagrafica><Denominazione>' + f.nome + '</Denominazione></Anagrafica>\n' +
+      '        <RegimeFiscale>RF01</RegimeFiscale>\n' +
+      '      </DatiAnagrafici>\n' +
+      '      <Sede><Indirizzo>' + f.indirizzo + '</Indirizzo><CAP>' + f.cap + '</CAP><Comune>' + f.comune + '</Comune><Provincia>' + f.prov + '</Provincia><Nazione>IT</Nazione></Sede>\n' +
+      '    </CedentePrestatore>\n' +
+      '    <CessionarioCommittente>\n' +
+      '      <DatiAnagrafici>\n' +
+      '        <IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>' + idCliente + '</IdCodice></IdFiscaleIVA>\n' +
+      '        <CodiceFiscale>' + idCliente + '</CodiceFiscale>\n' +
+      '        <Anagrafica><Denominazione>' + c.nome + '</Denominazione></Anagrafica>\n' +
+      '      </DatiAnagrafici>\n' +
+      '      <Sede><Indirizzo>' + c.indirizzo + '</Indirizzo><CAP>' + c.cap + '</CAP><Comune>' + c.comune + '</Comune><Provincia>' + c.prov + '</Provincia><Nazione>IT</Nazione></Sede>\n' +
+      '    </CessionarioCommittente>\n' +
+      '  </FatturaElettronicaHeader>\n' +
+      '  <FatturaElettronicaBody>\n' +
+      '    <DatiGenerali>\n' +
+      '      <DatiGeneraliDocumento>\n' +
+      '        <TipoDocumento>' + d.tipoDocumento + '</TipoDocumento>\n' +
+      '        <Divisa>EUR</Divisa>\n' +
+      '        <Data>' + d.dataDocumento + '</Data>\n' +
+      '        <Numero>' + d.numero + '</Numero>\n' +
+      '        <ImportoTotaleDocumento>' + d.importoTotale + '</ImportoTotaleDocumento>\n' +
+      '        <Causale>' + d.descrizioneBeni + '</Causale>\n' +
+      '      </DatiGeneraliDocumento>\n' +
+      '    </DatiGenerali>\n' +
+      '    <DatiBeniServizi>\n' +
+      '      <DettaglioLinee>\n' +
+      '        <NumeroLinea>1</NumeroLinea>\n' +
+      '        <Descrizione>' + d.descrizioneBeni + '</Descrizione>\n' +
+      '        <Quantita>1.000</Quantita>\n' +
+      '        <PrezzoUnitario>' + d.imponibile + '</PrezzoUnitario>\n' +
+      '        <PrezzoTotale>' + d.imponibile + '</PrezzoTotale>\n' +
+      '        <AliquotaIVA>22.00</AliquotaIVA>\n' +
+      '      </DettaglioLinee>\n' +
+      '      <DatiRiepilogo>\n' +
+      '        <AliquotaIVA>22.00</AliquotaIVA>\n' +
+      '        <ImponibileImporto>' + d.imponibile + '</ImponibileImporto>\n' +
+      '        <Imposta>' + d.iva + '</Imposta>\n' +
+      '      </DatiRiepilogo>\n' +
+      '    </DatiBeniServizi>\n' +
+      '    <DatiPagamento>\n' +
+      '      <CondizioniPagamento>TP02</CondizioniPagamento>\n' +
+      '      <DettaglioPagamento>\n' +
+      '        <Beneficiario>' + f.nome + '</Beneficiario>\n' +
+      '        <ModalitaPagamento>' + d.modalitaPagamento + '</ModalitaPagamento>\n' +
+      '        <DataScadenzaPagamento>' + d.scadenzaPagamento + '</DataScadenzaPagamento>\n' +
+      '        <ImportoPagamento>' + d.importoPagamento + '</ImportoPagamento>\n' +
+      '        <IBAN>IT47J0366901600576709556880</IBAN>\n' +
+      '      </DettaglioPagamento>\n' +
+      '    </DatiPagamento>\n' +
+      '  </FatturaElettronicaBody>\n' +
+      '</p:FatturaElettronica>';
+  }
 
-    const items = await expandInputFiles(accepted);
+  // Genera l'XML FileMetadati (notifica SdI) di una notifica fittizia,
+  // fedele al formato reale (namespace messaggi/v1.0).
+  function buildMetadatiXml(d, hash) {
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<ns3:FileMetadati xmlns:ns2="http://www.w3.org/2000/09/xmldsig#" xmlns:ns3="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fattura/messaggi/v1.0" versione="1.0">\n' +
+      '    <IdentificativoSdI>' + d.idSdI + '</IdentificativoSdI>\n' +
+      '    <NomeFile>' + d.nomeFile + '</NomeFile>\n' +
+      '    <Hash>' + hash + '</Hash>\n' +
+      '    <CodiceDestinatario>' + d.codiceDestinatario + '</CodiceDestinatario>\n' +
+      '    <Formato>' + d.formato + '</Formato>\n' +
+      '    <TentativiInvio>' + d.tentativiInvio + '</TentativiInvio>\n' +
+      '    <MessageId>' + d.messageId + '</MessageId>\n' +
+      '</ns3:FileMetadati>';
+  }
 
-    let processed = 0;
-    let duplicatiNome = 0;
-    for (const it of items) {
-      if (it.error) {
-        const id = ++idCounter;
-        const entry = { id: id, file: null, fileName: it.name, size: 0, date: new Date(), status: 'error', type: 'nonLeggibile', data: null, error: it.error };
-        files.push(entry);
-        processed++;
-        progressBar.style.width = Math.round((processed / items.length) * 100) + '%';
-        continue;
-      }
-      const isSigned = /\.p7m$/i.test(it.name) || /\.p7s$/i.test(it.name);
-      let text = '';
-      let data = null;
-      let parseErr = null;
-      try {
-        text = new TextDecoder('utf-8').decode(it.u8);
-        if (isSigned) {
-          const ex = extractXmlFromP7m(text);
-          if (!ex.found) throw new Error('Firma P7M: contenuto XML non estraibile');
-          text = ex.xml;
-        }
-        if (!text || !text.trim()) throw new Error('File vuoto');
-        data = parseFatturaPA(text, it.name);
-      } catch (e) {
-        parseErr = e.message || 'Errore sconosciuto';
-      }
+  // 100 file fittizi: 50 fatture e 50 conferme SdI alternate (fattura, conferma, fattura, conferma...).
+  // La conferma (FileMetadati) porta un suffisso "_MT_00k" nel nome file, come nelle notifiche reali.
+  function buildTestInvoices() {
+    const fornitori = [
+      { piva: '01234567890', nome: 'Blue Sistemi S.r.l.', sede: 'Via Roma, 12, 20123 Milano (MI)', indirizzo: 'Via Roma, 12', cap: '20123', comune: 'Milano', prov: 'MI', pec: 'blue@pec.example.it' },
+      { piva: '09876543210', nome: 'Meridiana Appalti S.p.A.', sede: 'Via Nazionale, 45, 00184 Roma (RM)', indirizzo: 'Via Nazionale, 45', cap: '00184', comune: 'Roma', prov: 'RM', pec: 'meridiana@pec.example.it' },
+      { piva: '12345678901', nome: 'Levante Industriale S.r.l.', sede: 'Corso Vittorio Emanuele, 3, 70121 Bari (BA)', indirizzo: 'Corso Vittorio Emanuele, 3', cap: '70121', comune: 'Bari', prov: 'BA', pec: 'levante@pec.example.it' }
+    ];
+    const clienti = [
+      { piva: '23456789012', nome: 'Nord Est Commerciale S.r.l.', sede: 'Piazza San Marco, 1, 30124 Venezia (VE)', indirizzo: 'Piazza San Marco, 1', cap: '30124', comune: 'Venezia', prov: 'VE', codiceDestinatario: 'M5UXCR1', pec: 'nordest@pec.example.it' },
+      { piva: '34567890123', nome: 'Alfa Costruzioni di Bianchi & C.', sede: 'Via Garibaldi, 8, 10122 Torino (TO)', indirizzo: 'Via Garibaldi, 8', cap: '10122', comune: 'Torino', prov: 'TO', codiceDestinatario: '0000002', pec: 'alfa@pec.example.it' }
+    ];
+    const descrizioni = ['Fornitura materiali edili', 'Manutenzione impianti', 'Consulenza direzionale', 'Servizi informatici', 'Trasporti e logistica', 'Progettazione strutturale'];
+    const pagamenti = [
+      { mod: 'MP05', label: 'Bonifico' },
+      { mod: 'MP01', label: 'Contanti' },
+      { mod: 'MP12', label: 'Riba' },
+      { mod: 'MP19', label: 'SEPA Direct Debit' }
+    ];
+    const tipiDoc = ['TD01', 'TD02', 'TD04', 'TD01'];
+    const anno = new Date().getFullYear();
 
-      // Livello 1 — stesso nome file già presente: salta in automatico (avviso)
-      const dupeNome = files.find(f => f.fileName === it.name);
-      if (dupeNome) {
-        duplicatiNome++;
-        toast('Salta "' + it.name + '": file con lo stesso nome già caricato', 'info');
-        processed++;
-        progressBar.style.width = Math.round((processed / items.length) * 100) + '%';
-        continue;
-      }
+    const out = [];
+    for (let k = 1; k <= 50; k++) {
+      const i = k; // contatore documento
+      const fornitore = fornitori[i % fornitori.length];
+      const cliente = clienti[i % clienti.length];
+      const prog = '00000' + i;
+      const base = 'IT' + fornitore.piva + 'F' + anno + '_' + prog;
+      const fatturaFile = base + '.xml.p7m';
+      const confermaFile = base + '_MT_' + String(k).padStart(3, '0') + '.xml';
+      const imponibile = Math.round(((i * 137) % 4500 + 500) * 100) / 100;
+      const iva = Math.round(imponibile * 0.22 * 100) / 100;
+      const mese = String((i % 12) + 1).padStart(2, '0');
+      const giorno = String((i % 27) + 1).padStart(2, '0');
 
-      // Livello 2 — stessa fattura ma nome file diverso: chiedi conferma
-      if (data && (data.kind === 'fattura' || data.kind === 'metadati')) {
-        const key = invoiceKey(data);
-        const dupeFattura = key ? files.find(f => f.data && invoiceKey(f.data) === key && f.fileName !== it.name) : null;
-        if (dupeFattura) {
-          const ok = await showModal(
-            'Possibile duplicato',
-            'Il file "' + it.name + '" sembra contenere la stessa fattura di "' + dupeFattura.fileName + '".\n\nAggiungerla comunque?'
-          );
-          if (!ok) {
-            toast('Salta "' + it.name + '": stessa fattura già presente', 'info');
-            processed++;
-            progressBar.style.width = Math.round((processed / items.length) * 100) + '%';
-            continue;
-          }
-        }
-      }
-
-      const id = ++idCounter;
-      const entry = {
-        id: id,
-        file: null,
-        fileName: it.name,
-        size: it.u8 ? it.u8.length : 0,
-        date: new Date(),
-        status: 'pending',
-        type: null,
-        data: null,
-        error: parseErr || null,
-        xml: (parseErr && !looksLikeInvoice(text)) ? null : text
+      // Fattura elettronica valida
+      const pag = pagamenti[i % pagamenti.length];
+      const tipoDoc = tipiDoc[i % tipiDoc.length];
+      const totale = imponibile + iva;
+      const d = {
+        kind: 'fattura', idSdI: fornitore.piva + '-' + prog, fileName: fatturaFile,
+        progressivoInvio: prog,
+        tipoDocumento: tipoDoc, tipoDocumentoLabel: (TIPO_DOC[tipoDoc] || tipoDoc),
+        numero: String(i), dataDocumento: anno + '-' + mese + '-' + giorno,
+        fornitore: fornitore.nome, fornitorePiva: fornitore.piva, fornitoreCF: fornitore.piva,
+        fornitoreSede: fornitore.sede, cliente: cliente.nome, clientePiva: cliente.piva,
+        clienteCF: cliente.piva, clienteSede: cliente.sede,
+        modalitaPagamento: pag.mod, modalitaPagamentoLabel: pag.label,
+        scadenzaPagamento: anno + '-' + mese + '-' + String(Math.min((i % 20) + 10, 28)).padStart(2, '0'),
+        importoPagamento: totale.toFixed(2), descrizioneBeni: descrizioni[i % descrizioni.length],
+        imponibile: imponibile, iva: iva,
+        n1Excluso: 0, n2NonSoggetto: 0, n3NonImponibile: 0, n4Esente: 0,
+        n5Margine: 0, n6Inversione: 0, n7AssoltaUE: 0,
+        importoTotale: totale.toFixed(2), nettoAPagare: totale.toFixed(2),
+        imponibileAssoggettato: imponibile
       };
-      files.push(entry);
+      out.push({
+        file: null, fileName: fatturaFile, size: 9000 + ((i * 71) % 6000), date: new Date(),
+        status: 'ok', type: 'fattura', error: null, xml: buildFatturaXml(d, fornitore, cliente),
+        data: d
+      });
 
-      if (parseErr) {
-        entry.status = 'error';
-        entry.type = looksLikeInvoice(text) ? 'corrotta' : (isSigned ? 'nonLeggibile' : 'nonFattura');
-      } else {
-        entry.data = data;
-        entry.type = data.kind; // 'fattura' | 'metadati' | 'nonFattura'
-        if (entry.type === 'nonFattura') {
-          entry.status = 'error';
-          entry.error = 'Il file non contiene una fattura elettronica (FatturaPA)';
-        } else {
-          entry.status = 'ok';
-          if (entry.type === 'fattura') fatture++;
-        }
-      }
-
-      processed++;
-      progressBar.style.width = Math.round((processed / items.length) * 100) + '%';
+      // Conferma SdI (Notifica corrispondente alla fattura appena creata)
+      const md = {
+        kind: 'metadati', idSdI: d.idSdI, nomeFile: fatturaFile, formato: 'FPR12',
+        codiceDestinatario: cliente.codiceDestinatario, tentativiInvio: 1,
+        messageId: String(43400000000 + i), fileName: confermaFile
+      };
+      const hash = 'a'.repeat(64);
+      out.push({
+        file: null, fileName: confermaFile, size: 4000 + i * 200, date: new Date(),
+        status: 'ok', type: 'metadati', error: null, xml: buildMetadatiXml(md, hash),
+        data: md
+      });
     }
 
-    setTimeout(() => {
-      progressWrap.classList.remove('active');
-      progressBar.style.width = '0%';
-    }, 400);
+    // Alcuni file rotti / invalidi / non pertinenti, per esercitare le classificazioni
+    // di errore del prototipo (lente visibile anche sui frammenti riconoscibili).
+    const rotte = [
+      'IT' + fornitori[0].piva + 'F' + anno + '_X001.xml.p7m',
+      'IT' + fornitori[1].piva + 'F' + anno + '_X002.xml.p7m'
+    ];
+    rotte.forEach((name, idx) => {
+      out.push({
+        file: null, fileName: name, size: 3000 + idx * 500, date: new Date(),
+        status: 'error', type: 'corrotta', data: null,
+        error: 'File firmato ma contenuto XML non valido (analisi fallita)',
+        xml: '<?xml version="1.0" encoding="UTF-8"?>\n<FatturaElettronica versione="1.2" xmlns="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2">\n  <FatturaElettronicaHeader><DatiTrasmissione>…contenuto danneggiato…</DatiTrasmissione></FatturaElettronicaHeader>\n</FatturaElettronica>'
+      });
+    });
 
-    const esclusi = items.length - fatture - duplicatiNome;
-    let msg = items.length + ' file analizzati — ' + fatture + ' fatture, ' + esclusi + ' esclusi';
-    if (duplicatiNome > 0) msg += ' · ' + duplicatiNome + ' duplicati saltati';
-    toast(msg, esclusi > 0 || duplicatiNome > 0 ? 'info' : 'ok');
+    // Non pertinenti: validi ma non fatture (es. ordine, bolletta)
+    const nonPertinenti = ['ordine_' + anno + '_A01.xml', 'bolletta_' + anno + '_B02.xml'];
+    nonPertinenti.forEach((name, idx) => {
+      out.push({
+        file: null, fileName: name, size: 1400 + idx * 300, date: new Date(),
+        status: 'error', type: 'nonFattura', data: { kind: 'nonFattura' },
+        error: 'Il file non contiene una fattura elettronica (FatturaPA)',
+        xml: (idx % 2 === 0)
+          ? '<?xml version="1.0" encoding="UTF-8"?>\n<OrdineCliente><Numero>7</Numero><Cliente>…documento non fattura…</Cliente></OrdineCliente>'
+          : '<?xml version="1.0" encoding="UTF-8"?>\n<BollettaConsumo><Periodo>...</Periodo></BollettaConsumo>'
+      });
+    });
 
+    // Invalidi: non leggibili (binario / non XML)
+    out.push({
+      file: null, fileName: 'allegato' + anno + '_C03.pdf', size: 950, date: new Date(),
+      status: 'error', type: 'nonLeggibile', data: null,
+      error: 'File non XML/P7M valido', xml: null
+    });
+
+    return out;
+  }
+
+  function loadTestData() {
+    const build = buildTestInvoices();
+    // Se il dataset è già caricato, non duplicarlo
+    const giaPresenti = build.filter(b => files.some(f => f.fileName === b.fileName && f.type === b.type)).length;
+    if (giaPresenti === build.length) {
+      toast('Dati di test già caricati (' + build.length + ' file)', 'info');
+      return;
+    }
+    const nuova = build.filter(b => !files.some(f => f.fileName === b.fileName && f.type === b.type));
+    nuova.forEach(e => { e.id = ++idCounter; files.push(e); });
     render();
     persistFiles();
+    const fatture = nuova.filter(f => f.type === 'fattura').length;
+    const metadati = nuova.filter(f => f.type === 'metadati').length;
+    const esclusi = nuova.length - fatture - metadati;
+    let riep = nuova.length + ' file di test — ' + fatture + ' fatture, ' + metadati + ' conferme';
+    if (esclusi > 0) riep += ', ' + esclusi + ' esclusi';
+    toast(riep, nuovo.length ? 'ok' : 'info');
   }
 
   /* ── Render ── */
@@ -1566,9 +1805,157 @@
     const q = (searchInput.value || '').trim().toLowerCase();
     const st = filterStatus.value;
     return files.filter(f => {
-      if (st !== 'all' && f.type !== st) return false;
+      if (st === 'esclusi' && (f.type === 'fattura' || f.type === 'metadati')) return false;
+      else if (st !== 'all' && st !== 'esclusi' && f.type !== st) return false;
       if (q && !f.fileName.toLowerCase().includes(q)) return false;
       return true;
+    });
+  }
+
+  /* ══ Componente generico riusabile: AppDataTable ══
+     Wrapper sopra jQuery DataTables con:
+       - paginazione (pageLength righe/pagina, default 25)
+       - ordinamento per colonna (libero per ogni colonna con orderable=true)
+       - numerazione automatica delle righe con contatore progressivo tra le pagine
+     API: AppDataTable(opts) -> { reload(rows), clear(), node() }
+     opts = {
+       table:     <table> elemento
+       pageLength: righe per pagina (default 25)
+       rowNumbers: booleano — true inserisce una colonna "#" come prima colonna dati
+       rowId:      (row) => valore univoco (usato per matchare le righe)
+       columns:    [
+         { title, data(optional, per il sort), orderable(default true),
+           className, render: (row, type, meta) => HTML o valore da mostrare }
+       ]
+     }
+     Uso in altre schermate:
+       var dt = AppDataTable({ table: document.querySelector('#miaTabella'),
+                               rowNumbers: true, pageLength: 25,
+                               rowId: r => r.id,
+                               columns: [
+                                 { title: 'Codice', render: r => r.codice },
+                                 { title: 'Nome',   render: r => r.nome }
+                               ] });
+       dt.reload(listaRighe);
+  */
+  window.AppDataTable = function (opts) {
+    const table = opts.table;
+    const pageLength = opts.pageLength || 25;
+    const rowId = opts.rowId || (r => r.id);
+    const baseCols = opts.columns || [];
+
+    // Colonna "#" inserita come prima colonna dati (numerazione progressiva tra le pagine)
+    if (opts.rowNumbers) {
+      baseCols.unshift({
+        title: '#',
+        orderable: false,
+        className: 'dt-col-num',
+        render: function (row, type, meta) {
+          return type === 'display'
+            ? (meta.settings._iDisplayStart + meta.row + 1)
+            : '';
+        }
+      });
+    }
+
+    const isFunc = v => typeof v === 'function';
+    const dataOf = c => {
+      // Ritorna la funzione che estrae il valore usato per l'ordinamento
+      if (c.data !== undefined) return c.data;
+      // Nessun data: nessun ordinamento utile (render mostra HTML).
+      return function () { return ''; };
+    };
+
+    const dt = $(table).DataTable({
+      paging: true,
+      pageLength: pageLength,
+      lengthChange: false,
+      searching: false,
+      ordering: true,
+      order: [],
+      autoWidth: false,
+      scrollY: true,
+      scrollCollapse: true,
+      dom: 't<".dt-bottom"ip>',
+      language: {
+        info: '_START_–_END_ di _TOTAL_',
+        infoEmpty: '0 file',
+        infoFiltered: '(filtrati da _MAX_)',
+        paginate: { first: '⟪', previous: '‹', next: '›', last: '⟫' }
+      },
+      createdRow: function (row, data) {
+        row.setAttribute('data-id', rowId(data));
+      },
+      columns: baseCols.map(c => ({
+        title: c.title || '',
+        orderable: c.orderable !== false,
+        className: c.className || '',
+        render: function (data, type, row, meta) {
+          if (type === 'sort' && isFunc(c.data) && c.render) {
+            // per l'ordinamento usa il valore estratto da data
+            return c.data(row);
+          }
+          if (c.render) {
+            const out = c.render(row, type, meta);
+            return out === undefined || out === null ? '' : out;
+          }
+          if (type === 'sort') return c.data ? String(c.data(row)) : '';
+          return data === undefined || data === null ? '' : String(data);
+        }
+      }))
+    });
+
+    return {
+      reload: function (rows) {
+        const data = rows.map(r => Object.assign({ __raw: r }, r));
+        dt.clear().rows.add(data).draw();
+        return this;
+      },
+      clear: function () {
+        dt.clear().draw();
+        return this;
+      },
+      node: function () { return table; },
+      api: function () { return dt; }
+    };
+  };
+
+  /* Istanza riusabile per la tabella dei file */
+  const XML_BTN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+  let dataTable = null;
+
+  function initFilesTable() {
+    if (dataTable) return;
+    dataTable = AppDataTable({
+      table: filesTable,
+      pageLength: 25,
+      rowId: f => f.id,
+      columns: [
+        {
+          title: '',
+          orderable: false,
+          className: 'dt-col-check',
+          render: f => '<input type="checkbox" data-id="' + f.id + '" ' + (f._selected ? 'checked' : '') + '>'
+        },
+        {
+          title: '#', orderable: false, className: 'dt-col-num',
+          render: function (row, type, meta) {
+            return type === 'display' ? (meta.settings._iDisplayStart + meta.row + 1) : '';
+          }
+        },
+        { title: 'Nome file', className: 'file-name', data: f => f.fileName, render: f => escapeHtml(f.fileName) },
+        { title: 'Dimensione', className: 'file-size', data: f => f.size, render: f => formatSize(f.size) },
+        {
+          title: 'Data caricamento', className: 'file-date', data: f => (f.date ? f.date.toISOString() : ''),
+          render: f => formatDate(f.date)
+        },
+        { title: 'Stato', data: f => f.type, render: f => typePill(f) },
+        {
+          title: 'Azioni', orderable: false, className: 'row-actions', render: f =>
+            (f.xml ? '<button class="btn btn-sm" data-xml="' + f.id + '" title="Vedi XML">' + XML_BTN + '</button>' : '') +
+            '<button class="btn btn-sm btn-danger" data-del="' + f.id + '" title="Elimina">✕</button>'
+        }
+      ]
     });
   }
 
@@ -1601,28 +1988,35 @@
     // Export button: attivo se c'è almeno una fattura nel totale
     btnExport.disabled = files.filter(f => f.type === 'fattura').length === 0;
 
-    // Select all (sull'elenco filtrato)
+    // Select all + stato pulsante (sull'elenco filtrato)
+    updateSelectAllHeader(list);
+
+    // Alimenta la datatable con l'elenco filtrato
+    if (dataTable) {
+      dataTable.reload(list);
+
+      // La tabella vive in un contenitore flex appena reso visibile: recalcola
+      // l'altezza del corpo scrollabile al frame successivo (a init era nascosto).
+      requestAnimationFrame(() => {
+        if (dataTable) dataTable.api().columns.adjust();
+      });
+    }
+  }
+
+  // Al ridimensionamento della finestra ricompatta le colonne e l'altezza dello scroll.
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (dataTable) dataTable.api().columns.adjust();
+    }, 120);
+  });
+
+  function updateSelectAllHeader(list) {
     const selected = list.filter(f => f._selected).length;
     selectAll.checked = list.length > 0 && selected === list.length;
     selectAll.indeterminate = selected > 0 && selected < list.length;
     btnDeleteSelected.disabled = selected === 0;
-
-    // Table rows
-    fileList.innerHTML = '';
-    list.forEach(f => {
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td><input type="checkbox" data-id="' + f.id + '" ' + (f._selected ? 'checked' : '') + '></td>' +
-        '<td class="file-name">' + escapeHtml(f.fileName) + '</td>' +
-        '<td class="file-size">' + formatSize(f.size) + '</td>' +
-        '<td class="file-date">' + formatDate(f.date) + '</td>' +
-        '<td>' + typePill(f) + '</td>' +
-        '<td class="row-actions">' +
-          (f.xml ? '<button class="btn btn-sm" data-xml="' + f.id + '" title="Vedi XML"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>' : '') +
-          '<button class="btn btn-sm btn-danger" data-del="' + f.id + '" title="Elimina">✕</button>' +
-        '</td>';
-      fileList.appendChild(tr);
-    });
   }
 
   function escapeHtml(s) {
@@ -1680,7 +2074,9 @@
       const id = parseInt(e.target.dataset.id);
       const f = files.find(x => x.id === id);
       if (f) f._selected = e.target.checked;
-      render();
+      // Aggiorna solo l'header di selezione: non ricarico la tabella
+      // per non far perdere la pagina corrente all'utente.
+      updateSelectAllHeader(filteredFiles());
     }
   });
 
@@ -1726,7 +2122,7 @@
     }
   });
 
-  /* ── Export (modello ReportFattureRicevute, 24 colonne) ── */
+  /* ── Export (SIMULATO — in produzione genera il report ReportFattureRicevute) ── */
   btnExport.addEventListener('click', () => {
     // Solo fatture elettroniche valide (esclude notifiche SdI, non-fatture e file corrotti)
     const fatture = files.filter(f => f.type === 'fattura');
@@ -1735,74 +2131,35 @@
       return;
     }
 
-    const headers = [
-      'Numero', 'Nome file', 'ID SdI', 'Data ricezione', 'Data documento',
-      'Tipo documento', 'Fornitore', 'P.IVA', 'Codice Fiscale',
-      'Metodo di pagamento', 'Totale imponibile', 'N1 - Escluso',
-      'N2 - Non soggetto', 'N3 - Non imponibile', 'N4 - Esente',
-      'N5 - Margine RP', 'N6 - Inversione contabile', 'N7 - IVA assolta UE',
-      'Totale IVA', 'Totale documento', 'Netto a pagare',
-      'Pagamenti', 'Data pagamento', 'Stato'
-    ];
-
-    const rows = fatture.map(f => {
-      const d = f.data;
-      // Tipo nel formato del modello: "Fattura - TD01"
-      const tipoDoc = d.tipoDocumento
-        ? ((TIPO_DOC[d.tipoDocumento] || d.tipoDocumento) + ' - ' + d.tipoDocumento)
-        : '';
-      // Metodo pagamento nel formato del modello: "MP19 - SEPA Direct Debit"
-      const metodoPag = d.modalitaPagamento
-        ? (d.modalitaPagamento + ' - ' + (PAGAMENTO[d.modalitaPagamento] || d.modalitaPagamentoLabel))
-        : '';
-      return [
-        d.numero,
-        d.fileName,
-        d.idSdI,
-        '', // data ricezione: riservata ai metadati SdI
-        d.dataDocumento,
-        tipoDoc,
-        d.fornitore,
-        d.fornitorePiva,
-        d.fornitoreCF,
-        metodoPag,
-        fmtMoney(d.imponibile),
-        fmtMoney(d.n1Excluso),
-        fmtMoney(d.n2NonSoggetto),
-        fmtMoney(d.n3NonImponibile),
-        fmtMoney(d.n4Esente),
-        fmtMoney(d.n5Margine),
-        fmtMoney(d.n6Inversione),
-        fmtMoney(d.n7AssoltaUE),
-        fmtMoney(d.iva),
-        fmtMoney(parseFloat(String(d.importoTotale).replace(/[^\d.,-]/g, '').replace(',', '.')) || 0),
-        fmtMoney(parseFloat(String(d.nettoAPagare).replace(/[^\d.,-]/g, '').replace(',', '.')) || 0),
-        'Non pagata',
-        '',
-        'Non letta'
-      ];
-    });
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-
-    ws['!cols'] = [
-      { wch: 10 }, { wch: 34 }, { wch: 20 }, { wch: 14 }, { wch: 14 },
-      { wch: 30 }, { wch: 34 }, { wch: 14 }, { wch: 18 },
-      { wch: 40 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
-      { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
-      { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
-      { wch: 14 }, { wch: 14 }, { wch: 12 }
-    ];
-
-    XLSX.utils.book_append_sheet(wb, ws, 'FattureRicevute');
-    XLSX.writeFile(wb, 'ReportFattureRicevute_' + new Date().toISOString().slice(0, 10) + '.xlsx');
-
-    toast('File Excel generato — ' + fatture.length + ' fatture esportate', 'ok');
+    // Prototipo: l'esportazione è simulata. Non generiamo alcun file .xlsx:
+    // al cliente si mostra solo l'esito atteso, non una funzione già funzionante.
+    exportCount.textContent = fatture.length;
+    exportOverlay.classList.add('open');
   });
 
+  exportClose.addEventListener('click', () => exportOverlay.classList.remove('open'));
+  exportOverlay.addEventListener('click', e => {
+    if (e.target === exportOverlay) exportOverlay.classList.remove('open');
+  });
+
+  /* ── Dati di test ── */
+  async function requestTestData() {
+    if (!currentUser) {
+      showAuth();
+      return;
+    }
+    const ok = await showModal(
+      'Carica dati di test',
+      'Caricare 105 file: 50 fatture elettroniche e 50 conferme SdI alternate, più 5 file anomali (corrotti, non pertinenti, non leggibili). I dati sono completamente inventati.',
+      'Carica'
+    );
+    if (ok) loadTestData();
+  }
+
+  btnTestData.addEventListener('click', requestTestData);
+
   /* ── Init: login client-side mock (sessione in localStorage/sessionStorage) ── */
-  (function init() {
+  function init() {
     getUsers(); // assicura il seed del super user
     const session = loadSession();
     if (session && session.username) {
@@ -1816,7 +2173,21 @@
       }
     }
     showAuth();
-  })();
+  }
+
+  // jQuery/DataTables sono ora script bloccanti caricati subito prima di questo
+  // script, quindi sono disponibili. Il boot resta rimandato a DOMContentLoaded
+  // per avere $ e DataTable sicuramente pronti; se la datatable non si costruisce
+  // il login deve comunque partire (try/catch di sicurezza).
+  function boot() {
+    try { initFilesTable(); } catch (e) { console.error('API datatable non disponibile:', e); }
+    init();
+  }
+  if (document.readyState !== 'loading') {
+    boot();
+  } else {
+    document.addEventListener('DOMContentLoaded', boot);
+  }
 
 })();
 </script>

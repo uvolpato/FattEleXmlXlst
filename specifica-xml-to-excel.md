@@ -262,7 +262,7 @@ Nell'implementazione Next.js (non nel prototipo client-side):
 
 ### 5.3 Filtri e ricerca
 
-- **Filtro per stato**: menu a tendina (`<select>`) per mostrare solo i file di un determinato tipo — "Tutti", "Fatture", "Notifiche SdI", "Non fatture", "Corrotte", "Non leggibili" (mappato sui tipi di §4.4)
+- **Filtro per stato**: menu a tendina (`<select>`) per mostrare solo i file di un determinato tipo — "Tutti", "Fatture", "Notifiche SdI", "Non fatture", "Corrotte", "Non leggibili", "Esclusi" (mappato sui tipi di §4.4). La voce **"Esclusi"** mostra in un colpo solo tutti i file che non entrano nell'export (non-fatture + corrotte + non leggibili), complementari a "Fatture" e "Notifiche SdI"
 - **Ricerca per nome**: campo di testo (`<input type="search">`) con filtro incrementale sul nome file (case-insensitive)
 - Filtro e ricerca sono combinabili e si applicano lato client sull'elenco già caricato
 - Il conteggio riepilogativo e i pulsanti di selezione operano sull'elenco filtrato
