@@ -34,6 +34,10 @@ body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-
 .footer{background:var(--db-dark);color:rgba(255,255,255,.5);text-align:center;padding:1.25rem;font-size:.8rem;margin-top:auto}
 .footer a{color:rgba(255,255,255,.7);text-decoration:none}
 .footer a:hover{color:#fff}
+.license-modal .modal-dialog{height:90vh;max-width:800px}
+.license-modal .modal-content{height:100%}
+.license-modal .modal-body{overflow-y:auto}
+.license-modal .modal-header{position:sticky;top:0;z-index:2;background:var(--db-surface)}
 </style>
 </head>
 <body>
@@ -145,8 +149,8 @@ body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-
    © 2026 Ugo Volpato AI Consultant · <a href="#" data-bs-toggle="modal" data-bs-target="#licenseModal">Licenza BSL 1.1</a>
  </footer>
 
- <div class="modal fade" id="licenseModal" tabindex="-1" aria-labelledby="licenseModalLabel" aria-hidden="true">
-   <div class="modal-dialog modal-dialog-centered modal-lg">
+<div class="modal fade license-modal" id="licenseModal" tabindex="-1" aria-labelledby="licenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg">
      <div class="modal-content">
        <div class="modal-header">
          <h5 class="modal-title" id="licenseModalLabel">Business Source License 1.1</h5>
