@@ -180,7 +180,7 @@
     </div>
     <div class="user-bar">
       <span class="user-chip" id="userChip"></span>
-      <a class="btn btn-sm" href="index.html">Torna all'app</a>
+      <a class="btn btn-sm" href="prototype.html">Torna all'app</a>
       <button class="btn btn-sm" id="btnLogout">Esci</button>
     </div>
   </header>
@@ -254,7 +254,7 @@
 (function() {
   'use strict';
 
-  /* ── Auth (stesse chiavi di index.html) ── */
+  /* ── Auth (stesse chiavi di prototype.html) ── */
   const SUPER_USERNAME = 'admin';
   const SUPER_PASSWORD = 'admin';
   const STORE_USERS = 'od_fix_users';
@@ -452,7 +452,7 @@
   btnLogout.addEventListener('click', () => {
     safeSet('local', STORE_SESSION, null);
     safeSet('session', STORE_SESSION, null);
-    window.location.href = 'index.html';
+    window.location.href = 'prototype.html';
   });
 
   /* ── Init: nessun controllo di autenticazione nel prototipo ── */

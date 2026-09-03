@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XML → Excel — Fatturazione Elettronica</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<script defer src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --fg: #212529;
+    --muted: #6c757d;
+    --border: #dee2e6;
+    --accent: #0d6efd;
+    --accent-light: #cfe2ff;
+    --danger: #dc3545;
+    --danger-light: #f8d7da;
+    --warn: #ffc107;
+    --warn-light: #fff3cd;
+    --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, monospace;
+    --radius: 0.375rem;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── HEADER (navbar scura) ── */
+  .app-header {
+    background: #212529;
+    border-bottom: 1px solid #2b3035;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .app-logo {
+    height: 34px;
+    width: auto;
+    border-radius: 4px;
+    object-fit: contain;
+    display: block;
+  }
+  .app-header h1 {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+  }
+  .app-header h1 span { color: #6ea8fe; }
+  .header-meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: rgba(255,255,255,.5);
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .app-main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── DROPZONE ── */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: var(--surface);
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+  }
+  .dropzone-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 12px;
+    opacity: 0.4;
+  }
+  .dropzone-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .dropzone-sub {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .dropzone input[type="file"] { display: none; }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .file-count {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .file-count strong { color: var(--fg); }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    flex-basis: 100%;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filter-select, .filter-search {
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--fg);
+  }
+  .filter-select { min-width: 160px; }
+  .filter-search { flex: 1; min-width: 180px; }
+  .filter-select:focus, .filter-search:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-light);
+  }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--fg);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font-body);
+  }
+  .btn:hover { background: var(--bg); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { filter: brightness(0.9); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+  .btn-danger {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+  .btn-danger:hover { background: var(--danger-light); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+  /* ── FILE TABLE ── */
+  .file-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .file-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .file-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    white-space: nowrap;
+  }
+  .file-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .file-table tr:last-child td { border-bottom: none; }
+  .file-table tr:hover td { background: #f8f9fa; }
+  .file-table input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .file-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    word-break: break-all;
+  }
+  .file-size {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .file-date {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ── STATUS PILLS ── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .pill-ok {
+    background: var(--accent-light);
+    color: #084298;
+  }
+  .pill-err {
+    background: var(--danger-light);
+    color: #842029;
+  }
+  .pill-pending {
+    background: var(--warn-light);
+    color: #664d03;
+  }
+  .pill-meta {
+    background: #e9ecef;
+    color: #495057;
+  }
+
+  /* ── TOAST ── */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,.15);
+    animation: toastIn 0.25s ease-out;
+  }
+  .toast-ok { background: var(--accent); color: #fff; }
+  .toast-err { background: var(--danger); color: #fff; }
+  .toast-info { background: var(--fg); color: var(--surface); }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 24px;
+    color: var(--muted);
+  }
+  .empty-state-icon { opacity: 0.3; margin-bottom: 8px; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-wrap.active { display: block; }
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,.4);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  }
+  .modal-card h3 { font-size: 15px; margin-bottom: 8px; }
+  .modal-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* ── XML VIEWER ── */
+  .modal-card.modal-xl { max-width: 960px; width: 94%; }
+  .xml-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .xml-head h3 { margin: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xml-view {
+    margin: 0; padding: 14px; text-align: left;
+    background: #0d1117; color: #c9d1d9;
+    border: 1px solid #21262d; border-radius: 6px;
+    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.5;
+    max-height: 70vh; overflow: auto; white-space: pre;
+  }
+  .xml-view .xml-tag { color: #7ee787; }
+  .row-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+
+  /* ── LOGIN / AUTH ── */
+  .auth-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.08);
+    width: 100%;
+    max-width: 380px;
+    padding: 32px;
+  }
+  .auth-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .auth-logo-text > span { color: var(--accent); }
+  .auth-logo-mini {
+    height: 32px;
+    width: auto;
+    border-radius: 4px;
+    object-fit: contain;
+  }
+  .auth-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-family: var(--font-body);
+    background: var(--surface);
+    color: var(--fg);
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-light);
+  }
+  .pwd-field { position: relative; }
+  .pwd-field input { padding-right: 42px; }
+  .pwd-toggle {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: var(--radius);
+  }
+  .pwd-toggle:hover { color: var(--fg); background: var(--bg); }
+  .keep-login {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--fg);
+    cursor: pointer;
+    margin-bottom: 4px;
+    user-select: none;
+  }
+  .keep-login input {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .auth-error {
+    font-size: 12px;
+    color: var(--danger);
+    min-height: 16px;
+    margin-bottom: 10px;
+  }
+  .btn-block { width: 100%; justify-content: center; padding: 10px; }
+  .auth-hint {
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* ── ADMIN / USERS PANEL ── */
+  .users-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .users-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .users-panel-header h2 {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .users-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .users-form input, .users-form select {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-family: var(--font-body);
+  }
+  .users-table-wrap { overflow-x: auto; }
+  .users-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .users-table th {
+    text-align: left;
+    padding: 9px 14px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .users-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .users-table tr:last-child td { border-bottom: none; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-admin { background: var(--accent-light); color: #084298; }
+  .badge-user { background: #e9ecef; color: #495057; }
+  .user-actions { display: flex; gap: 6px; align-items: center; }
+
+  /* ── FOLDER BANNER ── */
+  .folder-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--accent-light);
+    border: 1px solid #cfe2ff;
+    border-radius: var(--radius);
+    padding: 8px 12px;
+  }
+  .folder-banner strong { color: #084298; }
+
+  /* ── USER BAR / LOGOUT ── */
+  .user-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 4px 12px;
+  }
+  .user-chip .role-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 99px;
+    background: var(--accent);
+  }
+  .user-chip .role-dot.user { background: var(--muted); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .app-main { padding: 16px; }
+    .dropzone { padding: 32px 16px; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar-left, .toolbar-right { justify-content: space-between; }
+    .file-table th:nth-child(4), .file-table td:nth-child(4) { display: none; }
+  }
+  @media (max-width: 480px) {
+    .file-table th:nth-child(3), .file-table td:nth-child(3) { display: none; }
+    .app-header { padding: 10px 16px; }
+    .app-logo { height: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login screen -->
+<div class="auth-screen" id="authScreen" data-od-id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <img src="logo.jpg" alt="" class="auth-logo-mini">
+      <span class="auth-logo-text"><span>XML</span> → Excel</span>
+    </div>
+    <div class="auth-sub">Fatturazione Elettronica — accesso utente</div>
+    <form id="loginForm" novalidate onsubmit="return false;">
+      <div class="field">
+        <label for="loginUsername">Nome utente</label>
+        <input type="text" id="loginUsername" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <div class="pwd-field">
+          <input type="password" id="loginPassword" autocomplete="current-password">
+          <button type="button" class="pwd-toggle" id="btnTogglePwd" aria-label="Mostra password" title="Mostra password">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <label class="keep-login">
+        <input type="checkbox" id="keepLogin">
+        Resta connesso
+      </label>
+      <div class="auth-error" id="loginError"></div>
+      <button class="btn btn-primary btn-block" type="button" id="btnLogin">Accedi</button>
+    </form>
+    <div class="auth-hint">Primo accesso: utente <code>admin</code>, password <code>admin</code> · v1.3</div>
+  </div>
+</div>
+
+<div id="appRoot">
+<header class="app-header" data-od-id="app-header">
+  <div class="brand" data-od-id="brand">
+    <img src="logo.jpg" alt="" class="app-logo" data-od-id="app-logo">
+    <h1><span>XML</span> → Excel</h1>
+  </div>
+  <div class="user-bar">
+    <span class="header-meta">Fatturazione Elettronica</span>
+    <span class="user-chip" id="userChip" style="display:none;"></span>
+    <a class="btn btn-sm" id="btnUsers" href="admin-users.html" style="display:none;">Gestione utenti</a>
+    <button class="btn btn-sm" id="btnLogout" style="display:none;">Esci</button>
+  </div>
+</header>
+
+<main class="app-main" data-od-id="app-main">
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <!-- Folder banner (cartella dell'utente corrente) -->
+  <div class="folder-banner" id="folderBanner" data-od-id="folder-banner">
+    <span>Cartella attiva:</span>
+    <strong id="folderName">/</strong>
+  </div>
+
+  <!-- Dropzone -->
+  <div class="dropzone" id="dropzone" data-od-id="dropzone">
+    <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"/>
+    </svg>
+    <div class="dropzone-title">Trascina i file XML qui</div>
+    <div class="dropzone-sub">accetta .xml, .p7m, .p7s e archivi .zip, .tar, .tar.gz, .tgz, .gz — vengono riconosciute solo le fatture elettroniche</div>
+    <input type="file" id="fileInput" multiple accept=".xml,.p7m,.p7s,.zip,.tar,.gz,.tgz">
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar" id="toolbar" style="display:none;" data-od-id="toolbar">
+    <div class="filter-bar" data-od-id="filter-bar">
+      <select id="filterStatus" class="filter-select" title="Filtra per stato">
+        <option value="all">Tutti i tipi</option>
+        <option value="fattura">Fatture</option>
+        <option value="metadati">Notifiche SdI</option>
+        <option value="nonFattura">Non fatture</option>
+        <option value="corrotta">Corrotte</option>
+        <option value="nonLeggibile">Non leggibili</option>
+      </select>
+      <input type="search" id="searchInput" class="filter-search" placeholder="Cerca per nome file…">
+    </div>
+    <div class="toolbar-left">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+        <input type="checkbox" id="selectAll" style="width:15px;height:15px;accent-color:var(--accent);">
+        Seleziona tutto
+      </label>
+      <span class="file-count" id="fileCount"></span>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn btn-danger btn-sm" id="btnDeleteSelected" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>
+        Elimina selezionati
+      </button>
+      <button class="btn btn-danger btn-sm" id="btnDeleteAll">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>
+        Elimina tutti
+      </button>
+      <button class="btn btn-primary" id="btnExport" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Esporta Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- File Table -->
+  <div class="file-table-wrap" id="tableWrap" style="display:none;" data-od-id="file-table">
+    <table class="file-table">
+      <thead>
+        <tr>
+          <th style="width:36px;"></th>
+          <th>Nome file</th>
+          <th>Dimensione</th>
+          <th>Data caricamento</th>
+          <th>Stato</th>
+          <th style="width:88px;">Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="fileList"></tbody>
+    </table>
+  </div>
+
+  <!-- Empty state when all deleted -->
+  <div class="empty-state" id="emptyState" style="display:none;" data-od-id="empty-state">
+    <svg class="empty-state-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+    </svg>
+    <p>Nessun file caricato</p>
+  </div>
+
+</main>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Confirm modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-card">
+    <h3 id="modalTitle">Conferma eliminazione</h3>
+    <p id="modalDesc">Sei sicuro di voler eliminare i file selezionati?</p>
+    <div class="modal-actions">
+      <button class="btn btn-sm" id="modalCancel">Annulla</button>
+      <button class="btn btn-danger btn-sm" id="modalConfirm">Elimina</button>
+    </div>
+  </div>
+</div>
+
+<!-- XML viewer modal -->
+<div class="modal-overlay" id="xmlOverlay">
+  <div class="modal-card modal-xl">
+    <div class="xml-head">
+      <h3 id="xmlTitle">XML</h3>
+      <button class="btn btn-sm" id="xmlClose">Chiudi</button>
+    </div>
+    <pre class="xml-view" id="xmlContent"></pre>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ── State ── */
+  let files = []; // { id, file, fileName, size, date, status, data, error }
+  let idCounter = 0;
+  let modalResolve = null;
+
+  /* ── Auth / Utenti ── */
+  // Super user fisso, non eliminabile e con password non modificabile tramite pannello
+  const SUPER_USERNAME = 'admin';
+  const SUPER_PASSWORD = 'admin';
+
+  const STORE_USERS = 'od_fix_users';
+  const STORE_SESSION = 'od_fix_session';
+
+  function loadUsers() {
+    try {
+      const raw = localStorage.getItem(STORE_USERS);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+    return {};
+  }
+
+  function saveUsers(users) {
+    try {
+      localStorage.setItem(STORE_USERS, JSON.stringify(users));
+    } catch (e) { /* storage non disponibile: si continua in memoria */ }
+  }
+
+  // users = { username: { password, role, createdAt } }
+  function getUsers() {
+    const users = loadUsers();
+    if (!users || typeof users !== 'object') return { [SUPER_USERNAME]: { password: SUPER_PASSWORD, role: 'admin', createdAt: Date.now() } };
+    // Il super user è fisso e non modificabile: riaffermiamo sempre le sue credenziali
+    users[SUPER_USERNAME] = { password: SUPER_PASSWORD, role: 'admin', createdAt: users[SUPER_USERNAME] ? users[SUPER_USERNAME].createdAt : Date.now() };
+    saveUsers(users);
+    return users;
+  }
+
+  let currentUser = null; // { username, role }
+
+  // Sessione: se "Mantieni accesso" è attivo la sessione è persistente (localStorage),
+  // altrimenti dura solo per la scheda/browser corrente (sessionStorage).
+  function getStore(name) {
+    try {
+      return name === 'session' ? window.sessionStorage : window.localStorage;
+    } catch (e) { return null; }
+  }
+
+  function safeGet(name, key) {
+    try {
+      const store = getStore(name);
+      if (!store) return null;
+      const raw = store.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function safeSet(name, key, val) {
+    try {
+      const store = getStore(name);
+      if (!store) return;
+      if (val === null) store.removeItem(key);
+      else store.setItem(key, JSON.stringify(val));
+    } catch (e) { /* storage non disponibile */ }
+  }
+
+  function loadSession() {
+    const persistent = safeGet('local', STORE_SESSION);
+    if (persistent) return persistent;
+    return safeGet('session', STORE_SESSION);
+  }
+
+  function saveSession(s, persistent) {
+    if (persistent) {
+      safeSet('local', STORE_SESSION, s);
+      safeSet('session', STORE_SESSION, null); // pulisce l'eventuale sessione di tab
+    } else {
+      safeSet('session', STORE_SESSION, s);
+      // non persiste: garantisce che alla chiusura del browser non resti traccia
+    }
+    if (s === null) safeSet('local', STORE_SESSION, null);
+  }
+
+  // Storage per-cartella: ogni utente ha la propria chiave di file
+  const FILE_PREFIX = 'od_fix_files_';
+  function folderFor(username) {
+    return '/' + username + '/';
+  }
+  function storeKeyFor(username) {
+    return FILE_PREFIX + username;
+  }
+  function loadUserFiles(username) {
+    try {
+      const raw = localStorage.getItem(storeKeyFor(username));
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { /* ignore */ }
+    return [];
+  }
+  function saveUserFiles(username, arr) {
+    try {
+      localStorage.setItem(storeKeyFor(username), JSON.stringify(arr));
+    } catch (e) { /* storage non disponibile: i file restano in memoria */ }
+  }
+
+  // Namespace FatturaPA 1.2: http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2
+  // Il parsing usa i localname degli elementi (getElementsByTagName), che funziona
+  // indipendentemente da namespace/prefix usati nel file XML, gestendo sia le
+  // fatture FatturaPA sia i file di notifica SdI (FileMetadati).
+
+  const TIPO_DOC = {
+    'TD01': 'Fattura', 'TD02': 'Acconto/anticipo su fattura', 'TD03': 'Acconto/anticipo su parcella',
+    'TD04': 'Nota di credito', 'TD05': 'Nota di debito', 'TD06': 'Parcella',
+    'TD07': 'Fattura RT', 'TD08': 'Fattura per acquisto intracomunitario',
+    'TD09': 'Autofattura', 'TD10': 'Fattura di sola indicazione IVA',
+    'TD11': 'Fattura accompagnatoria', 'TD12': 'Acconto/anticipo su fattura accompagnatoria',
+    'TD13': 'Acconto/anticipo su parcella accompagnatoria', 'TD14': 'Fattura RT accompagnatoria',
+    'TD15': 'Fattura per acquisto intracomunitario accompagnatoria', 'TD16': 'Integrazione fattura reverse charge interno',
+    'TD17': 'Integrazione/autofattura per acquisto servizi estero', 'TD18': 'Integrazione per acquisto beni ex art.17 comma 2 DPR 633/72',
+    'TD19': 'Integrazione/autofattura per acquisto beni ex art.17 comma 6-bis DPR 633/72',
+    'TD20': 'Autofattura per regolarizzazione e integrazione delle fatture', 'TD21': 'Autofattura per splafonamento',
+    'TD22': 'Estrazione beni da Deposito IVA', 'TD23': 'Estrazione beni da Deposito IVA con versamento IVA',
+    'TD24': 'Fattura differita di cui all\u2019art.21, comma 4, lett. a)', 'TD25': 'Fattura differita di cui all\u2019art.21, comma 4, terzo periodo lett. b)',
+    'TD26': 'Cessione di beni ammortizzabili e per passaggi interni', 'TD27': 'Fattura per autoconsumo o per cessioni gratuite senza rivalsa',
+    'TD28': 'Acquisti da San Marino con IVA', 'TD29': 'Acquisti da San Marino senza IVA'
+  };
+
+  const PAGAMENTO = {
+    'MP01': 'Contanti', 'MP02': 'Assegno', 'MP03': 'Assegno circolare',
+    'MP04': 'Contanti presso Tesoreria', 'MP05': 'Bonifico', 'MP06': 'Vaglia cambiario',
+    'MP07': 'Bollettino bancario', 'MP08': 'Carta di pagamento', 'MP09': 'RID',
+    'MP10': 'RID utenze', 'MP11': 'RID veloce', 'MP12': 'Riba',
+    'MP13': 'MAV', 'MP14': 'Quietanza erario', 'MP15': 'Giroconto su conti di contabilità speciale',
+    'MP16': 'Bonifico bancario postale', 'MP17': 'Contanti con RIA (ricevuta fiscale)',
+    'MP18': 'Contanti con RIA (scontrino)', 'MP19': 'SEPA Direct Debit', 'MP20': 'SEPA Direct Debit CORE',
+    'MP21': 'SEPA Direct Debit B2B', 'MP22': 'Accredito su conto corrente postale',
+    'MP23': 'Accredito su conto di tesoreria (ordinario, infruttifero o fruttifero)', 'MP24': 'Addebito diretto',
+    'MP25': 'Contanti', 'MP26': 'Assegno bancario e circolare', 'MP27': 'Altri mezzi di pagamento',
+    'MP28': 'Bollo'
+  };
+
+  /* ── DOM refs ── */
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const fileList = document.getElementById('fileList');
+  const tableWrap = document.getElementById('tableWrap');
+  const toolbar = document.getElementById('toolbar');
+  const emptyState = document.getElementById('emptyState');
+  const selectAll = document.getElementById('selectAll');
+  const fileCount = document.getElementById('fileCount');
+  const filterStatus = document.getElementById('filterStatus');
+  const searchInput = document.getElementById('searchInput');
+  const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+  const btnDeleteAll = document.getElementById('btnDeleteAll');
+  const btnExport = document.getElementById('btnExport');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar = document.getElementById('progressBar');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalDesc = document.getElementById('modalDesc');
+  const modalCancel = document.getElementById('modalCancel');
+  const modalConfirm = document.getElementById('modalConfirm');
+  const xmlOverlay = document.getElementById('xmlOverlay');
+  const xmlTitle = document.getElementById('xmlTitle');
+  const xmlContent = document.getElementById('xmlContent');
+  const xmlClose = document.getElementById('xmlClose');
+  const toastContainer = document.getElementById('toastContainer');
+
+  const authScreen = document.getElementById('authScreen');
+  const loginForm = document.getElementById('loginForm');
+  const loginUsername = document.getElementById('loginUsername');
+  const loginPassword = document.getElementById('loginPassword');
+  const loginError = document.getElementById('loginError');
+  const btnTogglePwd = document.getElementById('btnTogglePwd');
+  const btnLogin = document.getElementById('btnLogin');
+  const keepLogin = document.getElementById('keepLogin');
+  const userChip = document.getElementById('userChip');
+  const btnLogout = document.getElementById('btnLogout');
+  const btnUsers = document.getElementById('btnUsers');
+  const folderName = document.getElementById('folderName');
+
+  /* ── Helpers ── */
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  function formatDate(d) {
+    return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function toast(msg, type) {
+    const el = document.createElement('div');
+    el.className = 'toast toast-' + type;
+    el.textContent = msg;
+    toastContainer.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; }, 2500);
+    setTimeout(() => el.remove(), 2800);
+  }
+
+  function showModal(title, desc) {
+    modalTitle.textContent = title;
+    modalDesc.textContent = desc;
+    modalOverlay.classList.add('open');
+    return new Promise(resolve => { modalResolve = resolve; });
+  }
+
+  modalCancel.onclick = () => { modalOverlay.classList.remove('open'); if (modalResolve) modalResolve(false); };
+  modalConfirm.onclick = () => { modalOverlay.classList.remove('open'); if (modalResolve) modalResolve(true); };
+
+  /* ── XML viewer ── */
+  function formatXml(xml) {
+    if (!xml) return '';
+    let formatted = '';
+    let pad = 0;
+    const str = xml.replace(/(>)\s*(<)(\/*)/g, '$1\n$2$3');
+    str.split('\n').forEach(node => {
+      if (!node.trim()) return;
+      let indent = 0;
+      if (/.+<\/\w[^>]*>$/.test(node)) indent = 0;
+      else if (/^<\/\w/.test(node)) { if (pad !== 0) pad -= 1; }
+      else if (/^<\w[^>]*[^/]>.*$/.test(node)) indent = 1;
+      formatted += '  '.repeat(pad) + node + '\n';
+      pad += indent;
+    });
+    return formatted;
+  }
+
+  function highlightXml(xml) {
+    return escapeHtml(xml).replace(
+      /(&lt;\/?)([A-Za-z_][A-Za-z0-9_.:-]*)/g,
+      '$1<span class="xml-tag">$2</span>'
+    );
+  }
+
+  function openXmlModal(fileName, xmlText) {
+    xmlTitle.textContent = fileName;
+    xmlContent.innerHTML = highlightXml(formatXml(xmlText));
+    xmlOverlay.classList.add('open');
+  }
+
+  xmlClose.onclick = () => xmlOverlay.classList.remove('open');
+  xmlOverlay.addEventListener('click', e => {
+    if (e.target === xmlOverlay) xmlOverlay.classList.remove('open');
+  });
+
+  /* ── Auth flow ── */
+  function showAuth() {
+    loginError.textContent = '';
+    authScreen.style.display = 'flex';
+    document.getElementById('appRoot').style.display = 'none';
+  }
+  function showApp() {
+    authScreen.style.display = 'none';
+    document.getElementById('appRoot').style.display = '';
+  }
+
+  function setUserBar() {
+    if (!currentUser) {
+      userChip.style.display = 'none';
+      btnLogout.style.display = 'none';
+      btnUsers.style.display = 'none';
+      return;
+    }
+    userChip.style.display = '';
+    userChip.innerHTML = '<span class="role-dot' + (currentUser.role === 'admin' ? '' : ' user') + '"></span>' +
+      escapeHtml(currentUser.username);
+    btnLogout.style.display = '';
+    btnUsers.style.display = (currentUser.role === 'admin') ? '' : 'none';
+    folderName.textContent = folderFor(currentUser.username);
+  }
+
+  btnTogglePwd.addEventListener('click', () => {
+    const show = loginPassword.type === 'password';
+    loginPassword.type = show ? 'text' : 'password';
+    loginPassword.focus();
+  });
+
+  function doLogin() {
+    const u = loginUsername.value.trim().toLowerCase();
+    const p = loginPassword.value;
+    if (!u || !p) { loginError.textContent = 'Inserisci nome utente e password'; return; }
+    const users = getUsers();
+    if (users[u] && users[u].password === p) {
+      currentUser = { username: u, role: users[u].role };
+      showApp(); // entra subito nell'app, prima di qualsiasi operazione secondaria
+      try {
+        saveSession(currentUser, keepLogin.checked);
+        setUserBar();
+        loadFilesForCurrentUser();
+        toast('Benvenuto, ' + u, 'ok');
+      } catch (err) {
+        console.error('Errore post-login:', err);
+      }
+    } else {
+      loginError.textContent = 'Credenziali non valide';
+    }
+  }
+
+  btnLogin.addEventListener('click', doLogin);
+  loginPassword.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLogin(); } });
+  loginUsername.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doLogin(); } });
+
+  btnLogout.addEventListener('click', () => {
+    currentUser = null;
+    saveSession(null);
+    files = [];
+    render();
+    showAuth();
+    loginPassword.value = '';
+    loginPassword.type = 'password';
+    keepLogin.checked = false;
+    loginUsername.value = '';
+  });
+
+  /* ── Persistenza per-cartella ── */
+  function persistFiles() {
+    if (!currentUser) return;
+    const storage = files.map(f => {
+      const copy = {};
+      for (const k in f) {
+        if (k === 'file' || k === 'xml') continue; // File object e testo XML non si serializzano
+        copy[k] = (k === 'date') ? f[k].toISOString() : f[k];
+      }
+      return copy;
+    });
+    saveUserFiles(currentUser.username, storage);
+  }
+
+  function loadFilesForCurrentUser() {
+    files = loadUserFiles(currentUser.username).map(r => {
+      if (r.date) r.date = new Date(r.date);
+      return r;
+    });
+    idCounter = files.reduce((m, f) => Math.max(m, f.id || 0), 0) + 1;
+    render();
+  }
+
+  /* ── XML Parsing ── */
+  // Trovare il primo elemento con un certo localName (indipendente dal namespace/prefix)
+  function getEl(parent, localName) {
+    if (!parent) return null;
+    const els = parent.getElementsByTagName(localName);
+    return els.length > 0 ? els[0] : null;
+  }
+
+  function getEls(parent, localName) {
+    if (!parent) return [];
+    return Array.from(parent.getElementsByTagName(localName));
+  }
+
+  function textOf(el) {
+    return el ? (el.textContent || '').trim() : '';
+  }
+
+  // Classificazione importi del DatiRiepilogo per Natura (N1-N7)
+  function parseRiepiloghi(body) {
+    const out = {
+      imponibile: 0, // ImponibileImporto (totale)
+      n1: 0, n2: 0, n3: 0, n4: 0, n5: 0, n6: 0, n7: 0, // escluso/non soggetto/non imponibile/esente/margine/inversione/assolta UE
+      iva: 0,
+      imponibileAssoggettato: 0 // somma imponibili senza Natura (assoggettati a IVA)
+    };
+    const riepiloghi = getEls(body, 'DatiRiepilogo');
+    for (const r of riepiloghi) {
+      const imp = parseFloat(textOf(getEl(r, 'ImponibileImporto'))) || 0;
+      const imposta = parseFloat(textOf(getEl(r, 'Imposta'))) || 0;
+      const natura = textOf(getEl(r, 'Natura'));
+      out.imponibile += imp;
+      out.iva += imposta;
+      if (natura === 'N1') out.n1 += imp;
+      else if (natura === 'N2' || natura === 'N2.1' || natura === 'N2.2') out.n2 += imp;
+      else if (natura === 'N3' || natura === 'N3.1' || natura === 'N3.2' || natura === 'N3.3' || natura === 'N3.4' || natura === 'N3.5' || natura === 'N3.6') out.n3 += imp;
+      else if (natura === 'N4') out.n4 += imp;
+      else if (natura === 'N5' || natura === 'N5.1' || natura === 'N5.2') out.n5 += imp;
+      else if (natura === 'N6' || natura === 'N6.1' || natura === 'N6.2' || natura === 'N6.3' || natura === 'N6.4' || natura === 'N6.5') out.n6 += imp;
+      else if (natura === 'N7') out.n7 += imp;
+      else out.imponibileAssoggettato += imp; // nessuna Natura => assoggettata a IVA
+    }
+    return out;
+  }
+
+  function fmtMoney(n) {
+    if (!n && n !== 0) return '';
+    return '€ ' + n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function parseFatturaPA(xmlString, fileName) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlString, 'text/xml');
+    const parseError = doc.querySelector('parsererror');
+    if (parseError) throw new Error('XML non valido');
+
+    // Caso Forte: FileMetadati SdI (notifica di trasmissione/ricezione, non fattura)
+    // Il root del file è direttamente <FileMetadati> (eventualmente con prefix di namespace)
+    const rootLocalName = doc.documentElement ? doc.documentElement.localName || doc.documentElement.nodeName : '';
+    const md = (rootLocalName === 'FileMetadati') ? doc.documentElement : getEl(doc.documentElement, 'FileMetadati');
+    if (md) {
+      return {
+        kind: 'metadati',
+        idSdI: textOf(getEl(md, 'IdentificativoSdI')),
+        nomeFile: textOf(getEl(md, 'NomeFile')),
+        formato: textOf(getEl(md, 'Formato')),
+        codiceDestinatario: textOf(getEl(md, 'CodiceDestinatario')),
+        fileName: fileName
+      };
+    }
+
+    // Caso FatturaPA 1.2
+    const body = getEl(doc.documentElement, 'FatturaElettronicaBody');
+    if (!body) {
+      // Root FatturaElettronica ma senza Body => fattura incompleta/corrotta
+      if (rootLocalName === 'FatturaElettronica' || rootLocalName.indexOf('FatturaElettronica') === 0) {
+        throw new Error('Fattura elettronica incompleta (manca FatturaElettronicaBody)');
+      }
+      // XML valido ma di altro tipo => non è una fattura
+      return { kind: 'nonFattura', fileName: fileName };
+    }
+    const b = body;
+
+    const header = getEl(doc.documentElement, 'FatturaElettronicaHeader');
+    const trasm = getEl(header, 'DatiTrasmissione');
+    const idSdI = textOf(getEl(getEl(trasm, 'IdTrasmittente'), 'IdCodice')) + '-' + textOf(getEl(trasm, 'ProgressivoInvio'));
+
+    // CedentePrestatore (Fornitore)
+    const cp = getEl(header, 'CedentePrestatore');
+    const cpAnag = getEl(cp, 'DatiAnagrafici');
+    const cpIdFisc = getEl(cpAnag, 'IdFiscaleIVA');
+    const cpPiva = textOf(getEl(cpIdFisc, 'IdCodice'));
+    const cpCF = textOf(getEl(cpAnag, 'CodiceFiscale'));
+    const cpNem = textOf(getEl(cpAnag, 'Nome'));
+    const cpCog = textOf(getEl(cpAnag, 'Cognome'));
+    const cpDenom = textOf(getEl(cpAnag, 'Denominazione')) || (cpNem + ' ' + cpCog).trim();
+    const cpSede = getEl(cp, 'Sede');
+    const cpIndirizzo = textOf(getEl(cpSede, 'Indirizzo')) + (textOf(getEl(cpSede, 'NumeroCivico')) ? ', ' + textOf(getEl(cpSede, 'NumeroCivico')) : '');
+    const cpCap = textOf(getEl(cpSede, 'CAP'));
+    const cpComune = textOf(getEl(cpSede, 'Comune'));
+    const cpProv = textOf(getEl(cpSede, 'Provincia'));
+
+    // CessionarioCommittente (Cliente)
+    const cc = getEl(header, 'CessionarioCommittente');
+    const ccAnag = getEl(cc, 'DatiAnagrafici');
+    const ccIdFisc = getEl(ccAnag, 'IdFiscaleIVA');
+    const ccPiva = textOf(getEl(ccIdFisc, 'IdCodice'));
+    const ccCF = textOf(getEl(ccAnag, 'CodiceFiscale'));
+    const ccDenom = textOf(getEl(ccAnag, 'Denominazione')) || ((textOf(getEl(ccAnag, 'Nome')) + ' ' + textOf(getEl(ccAnag, 'Cognome'))).trim());
+    const ccSede = getEl(cc, 'Sede');
+    const ccIndirizzo = textOf(getEl(ccSede, 'Indirizzo')) + (textOf(getEl(ccSede, 'NumeroCivico')) ? ', ' + textOf(getEl(ccSede, 'NumeroCivico')) : '');
+    const ccCap = textOf(getEl(ccSede, 'CAP'));
+    const ccComune = textOf(getEl(ccSede, 'Comune'));
+    const ccProv = textOf(getEl(ccSede, 'Provincia'));
+
+    // DatiGeneraliDocumento
+    const dgd = getEl(b, 'DatiGeneraliDocumento');
+    const tipoDoc = textOf(getEl(dgd, 'TipoDocumento'));
+    const numero = textOf(getEl(dgd, 'Numero'));
+    const data = textOf(getEl(dgd, 'Data'));
+    const importoTotale = textOf(getEl(dgd, 'ImportoTotaleDocumento'));
+
+    // DettaglioLinee
+    const linee = getEls(b, 'DettaglioLinee');
+    const descrizioni = linee.map(l => textOf(getEl(l, 'Descrizione'))).filter(Boolean);
+
+    // DatiPagamento
+    const dp = getEl(b, 'DatiPagamento');
+    const detP = dp ? getEl(dp, 'DettaglioPagamento') : null;
+    const modalitaPag = textOf(getEl(detP, 'ModalitaPagamento'));
+    const scadenza = textOf(getEl(detP, 'DataScadenzaPagamento'));
+    const importoPag = textOf(getEl(detP, 'ImportoPagamento'));
+
+    // Riepiloghi per natura
+    const riep = parseRiepiloghi(b);
+
+    return {
+      kind: 'fattura',
+      idSdI: idSdI,
+      fileName: fileName,
+      tipoDocumento: tipoDoc,
+      tipoDocumentoLabel: (TIPO_DOC[tipoDoc] || tipoDoc),
+      numero: numero,
+      dataDocumento: data,
+      fornitore: cpDenom,
+      fornitorePiva: cpPiva,
+      fornitoreCF: cpCF,
+      fornitoreSede: [cpIndirizzo, cpCap, cpComune, cpProv].filter(Boolean).join(', '),
+      cliente: ccDenom,
+      clientePiva: ccPiva,
+      clienteCF: ccCF,
+      clienteSede: [ccIndirizzo, ccCap, ccComune, ccProv].filter(Boolean).join(', '),
+      modalitaPagamento: modalitaPag,
+      modalitaPagamentoLabel: (PAGAMENTO[modalitaPag] || modalitaPag),
+      scadenzaPagamento: scadenza,
+      importoPagamento: importoPag,
+      descrizioneBeni: descrizioni.join(' | '),
+      imponibile: riep.imponibile,
+      n1Excluso: riep.n1,
+      n2NonSoggetto: riep.n2,
+      n3NonImponibile: riep.n3,
+      n4Esente: riep.n4,
+      n5Margine: riep.n5,
+      n6Inversione: riep.n6,
+      n7AssoltaUE: riep.n7,
+      iva: riep.iva,
+      importoTotale: importoTotale,
+      nettoAPagare: importoPag,
+      imponibileAssoggettato: riep.imponibileAssoggettato
+    };
+  }
+
+  /* ── Helpers classificazione ── */
+  // Estrae l'XML (testo) da un involucro PKCS#7 (.p7m / .p7s): individua l'inizio
+  // del documento e taglia i byte della firma digitale presenti dopo la chiusura del root.
+  function extractXmlFromP7m(raw) {
+    let start = raw.indexOf('<?xml');
+    if (start < 0) start = raw.indexOf('<FatturaElettronica');
+    if (start < 0) start = raw.indexOf('<FileMetadati');
+    if (start < 0) return { found: false, xml: raw };
+    let xml = raw.substring(start);
+    const m = xml.match(/<\/(FatturaElettronica|FileMetadati)\s*>/);
+    if (m) xml = xml.substring(0, m.index + m[0].length);
+    return { found: true, xml: xml };
+  }
+
+  // Il testo contiene i marcatori tipici di una fattura elettronica FatturaPA?
+  function looksLikeInvoice(text) {
+    if (!text) return false;
+    return text.indexOf('FatturaElettronica') >= 0 || text.indexOf('ivaservizi.agenziaentrate.gov.it') >= 0;
+  }
+
+  /* ── Archivi compressi ── */
+  function isArchiveName(name) {
+    const n = name.toLowerCase();
+    return n.endsWith('.zip') || n.endsWith('.tar') || n.endsWith('.tar.gz') || n.endsWith('.tgz') || n.endsWith('.gz');
+  }
+  function isXmlLike(name) {
+    const n = name.toLowerCase();
+    return n.endsWith('.xml') || n.endsWith('.p7m') || n.endsWith('.p7s');
+  }
+  function isTar(u8) {
+    return u8 && u8.length > 262 &&
+      u8[257] === 0x75 && u8[258] === 0x73 && u8[259] === 0x74 && u8[260] === 0x61 && u8[261] === 0x72;
+  }
+  function tarField(u8) {
+    let end = u8.indexOf(0);
+    if (end < 0) end = u8.length;
+    return new TextDecoder().decode(u8.subarray(0, end)).trim();
+  }
+  function parseTar(u8) {
+    const out = [];
+    let off = 0;
+    while (off + 512 <= u8.length) {
+      const h = u8.subarray(off, off + 512);
+      if (h.every(b => b === 0)) break;
+      const name = tarField(h.subarray(0, 100));
+      if (!name) break;
+      const size = parseInt(tarField(h.subarray(124, 136)), 8) || 0;
+      const typeflag = h[156];
+      if (typeflag === 48 || typeflag === 0) {
+        out.push({ name: name, u8: u8.subarray(off + 512, off + 512 + size) });
+      }
+      off += 512 + Math.ceil(size / 512) * 512;
+    }
+    return out;
+  }
+  function unzipSafe(u8) { return (window.fflate && window.fflate.unzipSync) ? window.fflate.unzipSync(u8) : null; }
+  function gunzipSafe(u8) { return (window.fflate && window.fflate.gunzipSync) ? window.fflate.gunzipSync(u8) : null; }
+
+  // Espande i file di input negli "elementi logici" (dopo estrazione archivi): { name, u8, error? }
+  async function expandInputFiles(arr) {
+    const out = [];
+    for (const file of arr) {
+      const name = file.name.toLowerCase();
+      const u8 = new Uint8Array(await file.arrayBuffer());
+      if (name.endsWith('.zip')) {
+        const entries = unzipSafe(u8);
+        if (!entries) { out.push({ name: file.name, error: 'Libreria archivi non disponibile' }); continue; }
+        let n = 0;
+        for (const en in entries) {
+          if (isXmlLike(en)) { out.push({ name: en, u8: entries[en] }); n++; }
+        }
+        if (n === 0) out.push({ name: file.name, error: 'Nessun file XML/P7M dentro lo ZIP' });
+      } else if (name.endsWith('.tar')) {
+        for (const f of parseTar(u8)) { if (isXmlLike(f.name)) out.push({ name: f.name, u8: f.u8 }); }
+      } else if (name.endsWith('.tar.gz') || name.endsWith('.tgz')) {
+        const un = gunzipSafe(u8);
+        if (!un) { out.push({ name: file.name, error: 'Libreria archivi non disponibile' }); continue; }
+        for (const f of parseTar(un)) { if (isXmlLike(f.name)) out.push({ name: f.name, u8: f.u8 }); }
+      } else if (name.endsWith('.gz')) {
+        const un = gunzipSafe(u8);
+        if (!un) { out.push({ name: file.name, error: 'Libreria archivi non disponibile' }); continue; }
+        if (isTar(un)) {
+          for (const f of parseTar(un)) { if (isXmlLike(f.name)) out.push({ name: f.name, u8: f.u8 }); }
+        } else {
+          out.push({ name: file.name.replace(/\.gz$/i, ''), u8: un });
+        }
+      } else {
+        out.push({ name: file.name, u8: u8 });
+      }
+    }
+    return out;
+  }
+
+  /* ── File handling ── */
+  async function addFiles(fileListInput) {
+    const arr = Array.from(fileListInput);
+    const accepted = arr.filter(f => {
+      const n = f.name.toLowerCase();
+      return n.endsWith('.xml') || n.endsWith('.p7m') || n.endsWith('.p7s') || isArchiveName(f.name);
+    });
+    if (accepted.length === 0) {
+      toast('Nessun file XML/P7M o archivio valido trovato', 'err');
+      return;
+    }
+
+    progressWrap.classList.add('active');
+    let fatture = 0;
+
+    const items = await expandInputFiles(accepted);
+
+    let processed = 0;
+    for (const it of items) {
+      const id = ++idCounter;
+      const entry = {
+        id: id,
+        file: null,
+        fileName: it.name,
+        size: it.u8 ? it.u8.length : 0,
+        date: new Date(),
+        status: 'pending',
+        type: null,
+        data: null,
+        error: it.error || null
+      };
+      files.push(entry);
+
+      if (it.error || !it.u8) {
+        entry.status = 'error';
+        entry.type = 'nonLeggibile';
+        entry.error = it.error || 'File non leggibile';
+      } else {
+        let text = '';
+        const isSigned = /\.p7m$/i.test(it.name) || /\.p7s$/i.test(it.name);
+        try {
+          text = new TextDecoder('utf-8').decode(it.u8);
+          if (isSigned) {
+            const ex = extractXmlFromP7m(text);
+            if (!ex.found) throw new Error('Firma P7M: contenuto XML non estraibile');
+            text = ex.xml;
+          }
+          entry.xml = text;
+          if (!text || !text.trim()) throw new Error('File vuoto');
+          const data = parseFatturaPA(text, entry.fileName);
+          entry.data = data;
+          entry.type = data.kind; // 'fattura' | 'metadati' | 'nonFattura'
+          if (entry.type === 'nonFattura') {
+            entry.status = 'error';
+            entry.error = 'Il file non contiene una fattura elettronica (FatturaPA)';
+          } else {
+            entry.status = 'ok';
+            if (entry.type === 'fattura') fatture++;
+          }
+        } catch (e) {
+          entry.status = 'error';
+          entry.error = e.message || 'Errore sconosciuto';
+          entry.type = looksLikeInvoice(text) ? 'corrotta' : (isSigned ? 'nonLeggibile' : 'nonFattura');
+        }
+      }
+
+      processed++;
+      progressBar.style.width = Math.round((processed / items.length) * 100) + '%';
+    }
+
+    setTimeout(() => {
+      progressWrap.classList.remove('active');
+      progressBar.style.width = '0%';
+    }, 400);
+
+    const esclusi = items.length - fatture;
+    toast(items.length + ' file caricati — ' + fatture + ' fatture, ' + esclusi + ' esclusi', esclusi > 0 ? 'info' : 'ok');
+
+    render();
+    persistFiles();
+  }
+
+  /* ── Render ── */
+  function filteredFiles() {
+    const q = (searchInput.value || '').trim().toLowerCase();
+    const st = filterStatus.value;
+    return files.filter(f => {
+      if (st !== 'all' && f.type !== st) return false;
+      if (q && !f.fileName.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }
+
+  function render() {
+    const hasFiles = files.length > 0;
+    tableWrap.style.display = hasFiles ? '' : 'none';
+    toolbar.style.display = hasFiles ? '' : 'none';
+    dropzone.style.display = hasFiles ? 'none' : '';
+    emptyState.style.display = 'none';
+
+    // Elenco filtrato (stato + ricerca)
+    const list = filteredFiles();
+
+    // Count (sull'elenco filtrato)
+    const fatture = list.filter(f => f.type === 'fattura').length;
+    const metadati = list.filter(f => f.type === 'metadati').length;
+    const esclusi = list.length - fatture - metadati;
+    let countHtml = '<strong>' + list.length + '</strong> file';
+    if (list.length > 0) {
+      countHtml += ' — <span style="color:var(--accent)">' + fatture + ' fatture</span>';
+      if (metadati > 0) countHtml += ' · <span style="color:var(--muted)">' + metadati + ' notifiche</span>';
+      if (esclusi > 0) countHtml += ' · <span style="color:var(--danger)">' + esclusi + ' esclusi</span>';
+    }
+    if (list.length !== files.length) {
+      countHtml += ' <span style="color:var(--muted)">(filtrati da ' + files.length + ')</span>';
+    }
+    fileCount.innerHTML = countHtml;
+
+    // Export button: attivo se c'è almeno una fattura nel totale
+    btnExport.disabled = files.filter(f => f.type === 'fattura').length === 0;
+
+    // Select all (sull'elenco filtrato)
+    const selected = list.filter(f => f._selected).length;
+    selectAll.checked = list.length > 0 && selected === list.length;
+    selectAll.indeterminate = selected > 0 && selected < list.length;
+    btnDeleteSelected.disabled = selected === 0;
+
+    // Table rows
+    fileList.innerHTML = '';
+    list.forEach(f => {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><input type="checkbox" data-id="' + f.id + '" ' + (f._selected ? 'checked' : '') + '></td>' +
+        '<td class="file-name">' + escapeHtml(f.fileName) + '</td>' +
+        '<td class="file-size">' + formatSize(f.size) + '</td>' +
+        '<td class="file-date">' + formatDate(f.date) + '</td>' +
+        '<td>' + typePill(f) + '</td>' +
+        '<td class="row-actions">' +
+          (f.xml ? '<button class="btn btn-sm" data-xml="' + f.id + '" title="Vedi XML"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>' : '') +
+          '<button class="btn btn-sm btn-danger" data-del="' + f.id + '" title="Elimina">✕</button>' +
+        '</td>';
+      fileList.appendChild(tr);
+    });
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function typePill(f) {
+    const map = {
+      fattura: ['pill-ok', 'Fattura elettronica'],
+      metadati: ['pill-meta', 'Notifica SdI'],
+      nonFattura: ['pill-meta', 'Non è una fattura'],
+      corrotta: ['pill-err', 'Fattura corrotta'],
+      nonLeggibile: ['pill-err', 'Non leggibile']
+    };
+    const c = map[f.type] || ['pill-pending', 'In elaborazione'];
+    const title = f.error ? ' title="' + escapeHtml(f.error) + '"' : '';
+    return '<span class="pill ' + c[0] + '"' + title + '>' + c[1] + '</span>';
+  }
+
+  /* ── Events ── */
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
+
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    addFiles(e.dataTransfer.files);
+  });
+
+  // Show dropzone again when empty after deletion
+  function checkEmpty() {
+    if (files.length === 0) {
+      tableWrap.style.display = 'none';
+      toolbar.style.display = 'none';
+      dropzone.style.display = '';
+    }
+  }
+
+  selectAll.addEventListener('change', () => {
+    const checked = selectAll.checked;
+    filteredFiles().forEach(f => f._selected = checked);
+    render();
+  });
+
+  filterStatus.addEventListener('change', render);
+  searchInput.addEventListener('input', render);
+
+  fileList.addEventListener('change', e => {
+    if (e.target.type === 'checkbox' && e.target.dataset.id) {
+      const id = parseInt(e.target.dataset.id);
+      const f = files.find(x => x.id === id);
+      if (f) f._selected = e.target.checked;
+      render();
+    }
+  });
+
+  fileList.addEventListener('click', e => {
+    const delBtn = e.target.closest('[data-del]');
+    if (delBtn) {
+      const id = parseInt(delBtn.dataset.del);
+      files = files.filter(f => f.id !== id);
+      render();
+      checkEmpty();
+      persistFiles();
+      return;
+    }
+    const xmlBtn = e.target.closest('[data-xml]');
+    if (xmlBtn) {
+      const id = parseInt(xmlBtn.dataset.xml);
+      const f = files.find(x => x.id === id);
+      if (f && f.xml) openXmlModal(f.fileName, f.xml);
+    }
+  });
+
+  btnDeleteSelected.addEventListener('click', async () => {
+    const count = files.filter(f => f._selected).length;
+    const ok = await showModal('Elimina selezionati', 'Eliminare ' + count + ' file selezionati?');
+    if (ok) {
+      files = files.filter(f => !f._selected);
+      render();
+      checkEmpty();
+      toast(count + ' file eliminati', 'info');
+      persistFiles();
+    }
+  });
+
+  btnDeleteAll.addEventListener('click', async () => {
+    const ok = await showModal('Elimina tutti', 'Eliminare tutti i ' + files.length + ' file caricati?');
+    if (ok) {
+      files = [];
+      render();
+      checkEmpty();
+      toast('Tutti i file eliminati', 'info');
+      persistFiles();
+    }
+  });
+
+  /* ── Export (modello ReportFattureRicevute, 24 colonne) ── */
+  btnExport.addEventListener('click', () => {
+    // Solo fatture elettroniche valide (esclude notifiche SdI, non-fatture e file corrotti)
+    const fatture = files.filter(f => f.type === 'fattura');
+    if (fatture.length === 0) {
+      toast('Nessuna fattura elettronica da esportare', 'err');
+      return;
+    }
+
+    const headers = [
+      'Numero', 'Nome file', 'ID SdI', 'Data ricezione', 'Data documento',
+      'Tipo documento', 'Fornitore', 'P.IVA', 'Codice Fiscale',
+      'Metodo di pagamento', 'Totale imponibile', 'N1 - Escluso',
+      'N2 - Non soggetto', 'N3 - Non imponibile', 'N4 - Esente',
+      'N5 - Margine RP', 'N6 - Inversione contabile', 'N7 - IVA assolta UE',
+      'Totale IVA', 'Totale documento', 'Netto a pagare',
+      'Pagamenti', 'Data pagamento', 'Stato'
+    ];
+
+    const rows = fatture.map(f => {
+      const d = f.data;
+      // Tipo nel formato del modello: "Fattura - TD01"
+      const tipoDoc = d.tipoDocumento
+        ? ((TIPO_DOC[d.tipoDocumento] || d.tipoDocumento) + ' - ' + d.tipoDocumento)
+        : '';
+      // Metodo pagamento nel formato del modello: "MP19 - SEPA Direct Debit"
+      const metodoPag = d.modalitaPagamento
+        ? (d.modalitaPagamento + ' - ' + (PAGAMENTO[d.modalitaPagamento] || d.modalitaPagamentoLabel))
+        : '';
+      return [
+        d.numero,
+        d.fileName,
+        d.idSdI,
+        '', // data ricezione: riservata ai metadati SdI
+        d.dataDocumento,
+        tipoDoc,
+        d.fornitore,
+        d.fornitorePiva,
+        d.fornitoreCF,
+        metodoPag,
+        fmtMoney(d.imponibile),
+        fmtMoney(d.n1Excluso),
+        fmtMoney(d.n2NonSoggetto),
+        fmtMoney(d.n3NonImponibile),
+        fmtMoney(d.n4Esente),
+        fmtMoney(d.n5Margine),
+        fmtMoney(d.n6Inversione),
+        fmtMoney(d.n7AssoltaUE),
+        fmtMoney(d.iva),
+        fmtMoney(parseFloat(String(d.importoTotale).replace(/[^\d.,-]/g, '').replace(',', '.')) || 0),
+        fmtMoney(parseFloat(String(d.nettoAPagare).replace(/[^\d.,-]/g, '').replace(',', '.')) || 0),
+        'Non pagata',
+        '',
+        'Non letta'
+      ];
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+    ws['!cols'] = [
+      { wch: 10 }, { wch: 34 }, { wch: 20 }, { wch: 14 }, { wch: 14 },
+      { wch: 30 }, { wch: 34 }, { wch: 14 }, { wch: 18 },
+      { wch: 40 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
+      { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
+      { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
+      { wch: 14 }, { wch: 14 }, { wch: 12 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'FattureRicevute');
+    XLSX.writeFile(wb, 'ReportFattureRicevute_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+
+    toast('File Excel generato — ' + fatture.length + ' fatture esportate', 'ok');
+  });
+
+  /* ── Init: login client-side mock (sessione in localStorage/sessionStorage) ── */
+  (function init() {
+    getUsers(); // assicura il seed del super user
+    const session = loadSession();
+    if (session && session.username) {
+      const users = getUsers();
+      if (users[session.username]) {
+        currentUser = { username: session.username, role: users[session.username].role };
+        setUserBar();
+        loadFilesForCurrentUser();
+        showApp();
+        return;
+      }
+    }
+    showAuth();
+  })();
+
+})();
+</script>
+</body>
+</html>
