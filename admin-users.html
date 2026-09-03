@@ -48,6 +48,8 @@
     z-index: 100;
   }
   .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-link { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .brand-link:hover { opacity: 0.85; }
   .app-logo { height: 34px; width: auto; border-radius: 4px; object-fit: contain; display: block; }
   .app-header h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: #ffffff; }
   .app-header h1 span { color: #6ea8fe; }
@@ -167,6 +169,18 @@
     .app-header { padding: 10px 16px; }
     .app-main { padding: 24px 16px; }
   }
+
+  /* ── FOOTER (fisso in basso) ── */
+  .app-footer {
+    background: #212529; border-top: 1px solid #2b3035;
+    padding: 16px 24px; text-align: center;
+    font-size: 12px; color: rgba(255,255,255,.45);
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
+  }
+  .app-main { padding-bottom: 56px; }
+  .app-footer a { color: rgba(255,255,255,.65); text-decoration: none; }
+  .app-footer a:hover { color: #fff; text-decoration: underline; }
+  .app-footer .proto-tag { color: rgba(255,180,80,.9); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -175,8 +189,10 @@
 <div id="appRoot" style="display:none;">
   <header class="app-header" data-od-id="admin-header">
     <div class="brand" data-od-id="brand">
-      <img src="logo.jpg" alt="" class="app-logo" data-od-id="app-logo">
-      <h1><span>XML</span> → Excel</h1>
+      <a href="index.html" class="brand-link" title="Torna alla home">
+        <img src="logo.jpg" alt="" class="app-logo" data-od-id="app-logo">
+        <h1><span>XML</span> → Excel</h1>
+      </a>
     </div>
     <div class="user-bar">
       <span class="user-chip" id="userChip"></span>
@@ -471,5 +487,11 @@
 
 })();
 </script>
+
+<footer class="app-footer">
+  <a href="index.html">← Torna alla home</a> &nbsp;&middot;&nbsp;
+  <span class="proto-tag">Prototipo dimostrativo</span> — alcune funzioni sono simulazioni e i dati non sono persistenti
+</footer>
+
 </body>
 </html>

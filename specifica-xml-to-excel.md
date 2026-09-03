@@ -81,8 +81,19 @@ Fattura (parsed da XML)
 Formati file accettati: `.xml`, `.p7m`, `.p7s` e archivi compressi `.zip`, `.tar`, `.tar.gz`, `.tgz`, `.gz` (estensioni case-insensitive).
 
 - **`.xml`**: letto direttamente come testo.
-- **`.p7m` / `.p7s`**: fattura firmata digitalmente (busta PKCS#7 / CAdES). Il contenuto XML della fattura è incapsulato nella busta; il programma individua l'inizio del documento (`<?xml`, `<FatturaElettronica` o `<FileMetadati`) e taglia i byte della firma presenti dopo la chiusura del root (`</FatturaElettronica>` / `</FileMetadati>`), così il parser non si blocca sui dati binari finali. Se il contenuto XML non è estraibile in chiaro (busta interamente DER), il file viene marcato come "non leggibile".
-- **Archivi compressi**: all'upload l'archivio viene aperto e ogni voce con estensione `.xml`/`.p7m`/`.p7s` è estratta e trattata come un singolo file; cartelle e altri formati vengono ignorati. In v1 non è prevista la ricorsione su archivi annidati.
+- **`.p7m` / `.p7s`**: fattura firmata digitalmente (busta PKCS#7 / CAdES). Il contenuto XML della fattura è incapsulato nella busta. **L'estrazione deve essere fatta per via strutturale, non con ricerca di pattern, e deve valere per ogni file importato** (vedi sotto).
+
+**Estrazione robusta del contenuto XML da una busta PKCS#7/CAdES (obbligatoria per ogni `.p7m`/`.p7s`):**
+
+1. **Tokenizzazione ASN.1 (BER/DER)** — il file viene decodificato come lista di TLV (Tag-Length-Value), gestendo sia la codifica **DER** (lunghezze definite) sia la **BER** (lunghezze indefinite `0x80` con terminatore end-of-contents `00 00`). La tokenizzazione è ricorsiva e scala fino agli elementi annidati. Si tollerano byte non-ASN.1 fuori contesto (es. BOM o header estranei) senza fallire.
+2. **Navigazione alla `SignedData`** — si individua la struttura `ContentInfo` (SEQ OID `1.2.840.113549.1.7.2` = `signedData`) e si entra nel campo `SignedData.encapContentInfo.eContent`, l'OCTET STRING che contiene il documento firmato (la fattura XML).
+3. **Ricostruzione del contenuto** — `eContent` (e, per la BER frammentata, la concatenazione dei suoi blocchi OCTET STRING interni) viene letto come flusso di byte, **scartando i byte di intestazione/framing dei TLV** e un eventuale BOM (`EF BB BF`) iniziale. Questo gestisce automaticamente i casi in cui il contenuto è spezzato in più blocchi a lunghezza indefinita (frammentazione BER) con intestazioni residue incollate nel testo.
+4. **Troncamento alla chiusura del root** — il documento viene tagliato alla prima occorrenza della chiusura del root (`</FatturaElettronica>` / `</FileMetadati>`), scartando i byte di firma (SignerInfo, certificati) che lo seguono nella busta.
+5. **Validazione** — il risultato deve essere XML ben formato; in caso contrario il file viene marcato `nonLeggibile` (o `corrotta` se contiene i marcatori FatturaPA).
+
+> Perché strutturale e non a pattern: una ricerca per `<?xml`/`<FatturaElettronica` fallisce quando la corruzione è **interna** al testo (es. intestazioni BER `04 82 …` incollate nel mezzo ai punti di giunzione dei blocchi, o BOM non all'inizio). L'approccio TLV/BER ricostruisce il documento originale indifferentemente da 1 o N blocchi, lunghezze variabili e certificati diversi, ed è quindi robusto per **tutti** i file importati.
+
+- **Archivi compressi**: all'upload l'archivio viene aperto e ogni voce con estensione `.xml`/`.p7m`/`.p7s` è estratta e trattata come un singolo file (ogni `.p7m`/`.p7s` segue l'estrazione robusta sopra); cartelle e altri formati vengono ignorati. In v1 non è prevista la ricorsione su archivi annidati.
 
 ### 4.3 Parsing XML
 
@@ -229,6 +240,7 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 - Conteggio riepilogativo: totale file, numero fatture, numero notifiche, numero esclusi
 - Per file con errore (corrotta/non leggibile): tooltip con messaggio di errore
 - Azioni per riga: pulsante **"Vedi XML"** (lente, presente solo quando è disponibile del contenuto XML) e pulsante di **eliminazione singola** (✕)
+- Per file classificati **"Fattura corrotta"** è presente un pulsante **"Recupera"**: tenta di ripulire/riparare l'XML del file (es. stripping della firma e degli header BER da una busta `.p7m`/`.p7s`, vedi §4.2) e di ritentare la classificazione. Nel **prototipo** il pulsante è presente ma mostra il messaggio "Funzione non disponibile nel prototipo"; l'implementazione effettiva è prevista nell'app Next.js (§9 Non incluso v1 → da spostare tra le funzionalità implementate)
 
 ### 5.3 Filtri e ricerca
 
@@ -305,7 +317,8 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 
 - **Framework**: Next.js (App Router) + TypeScript — un'unica app full-stack: interfaccia e API (route handler / server actions) nello stesso progetto
 - **Storage**: **filesystem** (nessun database). I file XML vengono salvati su disco in cartelle dedicate.
-- **Parsing XML**: `fast-xml-parser` lato server, con supporto `.p7m`/`.p7s` (estrazione del contenuto XML dalla busta PKCS#7/CAdES, vedi §4.2)
+- **Parsing XML**: `fast-xml-parser` lato server, con supporto `.p7m`/`.p7s` (estrazione strutturale del contenuto XML dalla busta PKCS#7/CAdES via ASN.1 BER/DER, vedi §4.2)
+- **Decodifica ASN.1/PKCS#7**: libreria Node dedicata (es. `@peculiar/asn1-schema` + `@peculiar/asn1-cms`, oppure `asn1js`) per tokenizzare la lingua BER/DER in TLV e navigare la `SignedData` fino a `encapContentInfo.eContent` (vedi §4.2); alternativa leggera: decoder ASN.1 minimal custom in ~100 righe se si preferisce zero dipendenze
 - **Generazione Excel**: `exceljs` (in alternativa `xlsx`/SheetJS) — output a 24 colonne (vedi §4.5)
 - **Upload**: route handler Next.js con `busboy` (parsing `multipart/form-data`)
 - **Estrazione archivi**: `fflate` (`.zip`) e `tar` + `zlib` (`.tar`, `.tar.gz`, `.tgz`, `.gz`) — solo dipendenze pure JS o built-in Node
@@ -359,6 +372,7 @@ data/
 - Personalizzazione colonne Excel
 - Ricorsione su archivi compressi annidati
 - Verifica crittografica della firma P7M (si estrae solo il contenuto, la firma non viene validata)
+- Ri-firma dell'XML: l'estrazione (§4.2) produce un XML non firmato; il programma non rigenera una busta PKCS#7 valida (modificando l'XML la firma originale è comunque invalidata)
 
 ## 10. Modello di marchio
 
