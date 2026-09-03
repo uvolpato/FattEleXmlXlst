@@ -356,6 +356,21 @@
   .modal-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
+  /* ── XML VIEWER ── */
+  .modal-card.modal-xl { max-width: 960px; width: 94%; }
+  .xml-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .xml-head h3 { margin: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xml-view {
+    margin: 0; padding: 14px; text-align: left;
+    background: #0d1117; color: #c9d1d9;
+    border: 1px solid #21262d; border-radius: 6px;
+    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.5;
+    max-height: 70vh; overflow: auto; white-space: pre;
+  }
+  .xml-view .xml-tag { color: #7ee787; }
+  .row-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+
   /* ── LOGIN / AUTH ── */
   .auth-screen {
     position: fixed;
@@ -719,7 +734,7 @@
           <th>Dimensione</th>
           <th>Data caricamento</th>
           <th>Stato</th>
-          <th style="width:36px;"></th>
+          <th style="width:88px;">Azioni</th>
         </tr>
       </thead>
       <tbody id="fileList"></tbody>
@@ -749,6 +764,17 @@
       <button class="btn btn-sm" id="modalCancel">Annulla</button>
       <button class="btn btn-danger btn-sm" id="modalConfirm">Elimina</button>
     </div>
+  </div>
+</div>
+
+<!-- XML viewer modal -->
+<div class="modal-overlay" id="xmlOverlay">
+  <div class="modal-card modal-xl">
+    <div class="xml-head">
+      <h3 id="xmlTitle">XML</h3>
+      <button class="btn btn-sm" id="xmlClose">Chiudi</button>
+    </div>
+    <pre class="xml-view" id="xmlContent"></pre>
   </div>
 </div>
 
@@ -915,6 +941,10 @@
   const modalDesc = document.getElementById('modalDesc');
   const modalCancel = document.getElementById('modalCancel');
   const modalConfirm = document.getElementById('modalConfirm');
+  const xmlOverlay = document.getElementById('xmlOverlay');
+  const xmlTitle = document.getElementById('xmlTitle');
+  const xmlContent = document.getElementById('xmlContent');
+  const xmlClose = document.getElementById('xmlClose');
   const toastContainer = document.getElementById('toastContainer');
 
   const authScreen = document.getElementById('authScreen');
@@ -959,6 +989,42 @@
 
   modalCancel.onclick = () => { modalOverlay.classList.remove('open'); if (modalResolve) modalResolve(false); };
   modalConfirm.onclick = () => { modalOverlay.classList.remove('open'); if (modalResolve) modalResolve(true); };
+
+  /* ── XML viewer ── */
+  function formatXml(xml) {
+    if (!xml) return '';
+    let formatted = '';
+    let pad = 0;
+    const str = xml.replace(/(>)\s*(<)(\/*)/g, '$1\n$2$3');
+    str.split('\n').forEach(node => {
+      if (!node.trim()) return;
+      let indent = 0;
+      if (/.+<\/\w[^>]*>$/.test(node)) indent = 0;
+      else if (/^<\/\w/.test(node)) { if (pad !== 0) pad -= 1; }
+      else if (/^<\w[^>]*[^/]>.*$/.test(node)) indent = 1;
+      formatted += '  '.repeat(pad) + node + '\n';
+      pad += indent;
+    });
+    return formatted;
+  }
+
+  function highlightXml(xml) {
+    return escapeHtml(xml).replace(
+      /(&lt;\/?)([A-Za-z_][A-Za-z0-9_.:-]*)/g,
+      '$1<span class="xml-tag">$2</span>'
+    );
+  }
+
+  function openXmlModal(fileName, xmlText) {
+    xmlTitle.textContent = fileName;
+    xmlContent.innerHTML = highlightXml(formatXml(xmlText));
+    xmlOverlay.classList.add('open');
+  }
+
+  xmlClose.onclick = () => xmlOverlay.classList.remove('open');
+  xmlOverlay.addEventListener('click', e => {
+    if (e.target === xmlOverlay) xmlOverlay.classList.remove('open');
+  });
 
   /* ── Auth flow ── */
   function showAuth() {
@@ -1035,7 +1101,7 @@
     const storage = files.map(f => {
       const copy = {};
       for (const k in f) {
-        if (k === 'file') continue; // il File object non si serializza
+        if (k === 'file' || k === 'xml') continue; // File object e testo XML non si serializzano
         copy[k] = (k === 'date') ? f[k].toISOString() : f[k];
       }
       return copy;
@@ -1363,6 +1429,7 @@
             if (!ex.found) throw new Error('Firma P7M: contenuto XML non estraibile');
             text = ex.xml;
           }
+          entry.xml = text;
           if (!text || !text.trim()) throw new Error('File vuoto');
           const data = parseFatturaPA(text, entry.fileName);
           entry.data = data;
@@ -1452,7 +1519,10 @@
         '<td class="file-size">' + formatSize(f.size) + '</td>' +
         '<td class="file-date">' + formatDate(f.date) + '</td>' +
         '<td>' + typePill(f) + '</td>' +
-        '<td><button class="btn btn-sm btn-danger" data-del="' + f.id + '" title="Elimina">✕</button></td>';
+        '<td class="row-actions">' +
+          (f.xml ? '<button class="btn btn-sm" data-xml="' + f.id + '" title="Vedi XML"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>' : '') +
+          '<button class="btn btn-sm btn-danger" data-del="' + f.id + '" title="Elimina">✕</button>' +
+        '</td>';
       fileList.appendChild(tr);
     });
   }
@@ -1523,6 +1593,13 @@
       render();
       checkEmpty();
       persistFiles();
+      return;
+    }
+    const xmlBtn = e.target.closest('[data-xml]');
+    if (xmlBtn) {
+      const id = parseInt(xmlBtn.dataset.xml);
+      const f = files.find(x => x.id === id);
+      if (f && f.xml) openXmlModal(f.fileName, f.xml);
     }
   });
 
