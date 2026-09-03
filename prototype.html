@@ -461,32 +461,69 @@
     background: var(--bg);
     font-size: 12px; color: var(--muted);
   }
-  .dataTables_wrapper .dataTables_paginate { display: flex; gap: 4px; }
+  .dataTables_wrapper .dataTables_paginate { display: flex; gap: 4px; flex-wrap: wrap; }
+  /* La libreria DataTables usa color:inherit!important sui pulsanti: i colori
+     personalizzati devono quindi dichiarare !important per avere il sopravvento. */
   .dataTables_wrapper .dataTables_paginate .paginate_button {
-    padding: 3px 9px; border: 1px solid var(--border);
-    border-radius: 6px; cursor: pointer; color: var(--muted);
-    background: var(--surface);
+    min-width: 26px; text-align: center;
+    padding: 3px 9px; border: 1px solid var(--border) !important;
+    border-radius: 6px; cursor: pointer; color: var(--fg) !important;
+    background: var(--surface) !important; font-weight: 500; margin-left: 0;
+    transition: background .12s ease, color .12s ease, border-color .12s ease;
   }
-  .dataTables_wrapper .dataTables_paginate .paginate_button:hover { background: #f1f3f5; }
-  .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+  .dataTables_wrapper .dataTables_paginate .paginate_button:hover:not(.disabled),
+  .dataTables_wrapper .dataTables_paginate .paginate_button:active:not(.disabled),
+  .dataTables_wrapper .dataTables_paginate .paginate_button:focus:not(.disabled) {
+    background: var(--accent-light) !important; border-color: var(--accent) !important;
+    color: var(--accent) !important;
   }
-  .dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
-    opacity: 0.45; cursor: default;
+  .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+  .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover,
+  .dataTables_wrapper .dataTables_paginate .paginate_button.current:active,
+  .dataTables_wrapper .dataTables_paginate .paginate_button.current:focus {
+    background: var(--accent) !important; border-color: var(--accent) !important;
+    color: #fff !important; font-weight: 600;
   }
+  .dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+  .dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover,
+  .dataTables_wrapper .dataTables_paginate .paginate_button.disabled:active {
+    opacity: 0.4; cursor: default; color: var(--muted) !important;
+    background: transparent !important; border-color: transparent !important;
+  }
+  /* rimuove il contorno/focus di default di DataTables che copre i numeri */
+  .dataTables_wrapper .dataTables_paginate .paginate_button:focus { outline: none; }
+  .dataTables_wrapper .dataTables_paginate .paginate_button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .dt-col-num { color: var(--muted); font-family: var(--font-mono); font-size: 12px; text-align: right; }
   .file-table thead th.sorting,
   .file-table thead th.sorting_asc,
-  .file-table thead th.sorting_desc { cursor: pointer; position: relative; padding-right: 20px; }
+  .file-table thead th.sorting_desc { cursor: pointer; position: relative; padding-right: 18px; }
+  /* Frecce di ordinamento sovrapposte (su in alto, giù in basso), allineate e leggibili */
+  .file-table thead th.sorting::before,
+  .file-table thead th.sorting::after,
+  .file-table thead th.sorting_asc::before,
+  .file-table thead th.sorting_asc::after,
+  .file-table thead th.sorting_desc::before,
+  .file-table thead th.sorting_desc::after {
+    position: absolute; right: 5px; width: 10px; text-align: center;
+    font-family: "bootstrap-icons"; font-size: 9px; line-height: 1;
+    pointer-events: none;
+  }
+  /* ::before = freccia su (▲) in ALTO; ::after = freccia giù (▼) in BASSO */
+  .file-table thead th.sorting::before,
+  .file-table thead th.sorting_asc::before,
+  .file-table thead th.sorting_desc::before { content: "\f229"; top: calc(50% - 9px); color: var(--muted); }   /* ▲ su */
   .file-table thead th.sorting::after,
   .file-table thead th.sorting_asc::after,
-  .file-table thead th.sorting_desc::after {
-    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-    font-family: "bootstrap-icons"; font-size: 11px; color: var(--muted);
-  }
-  .file-table thead th.sorting::after { content: "\f148"; opacity: 0.4; }   /* bi-arrow-down-up */
-  .file-table thead th.sorting_asc::after { content: "\f12d"; }             /* bi-caret-up-fill */
-  .file-table thead th.sorting_desc::after { content: "\f229"; }            /* bi-caret-down-fill */
+  .file-table thead th.sorting_desc::after { content: "\f12d"; top: calc(50% + 1px); color: var(--muted); }    /* ▼ giù */
+  /* colonna non ordinata: entrambe tenui */
+  .file-table thead th.sorting::before,
+  .file-table thead th.sorting::after { opacity: 0.45 !important; }
+  /* ordine ascendente: evidenziata la freccia su (▲, ::before) */
+  .file-table thead th.sorting_asc::before { color: var(--accent) !important; opacity: 1; }
+  .file-table thead th.sorting_asc::after { opacity: 0.3 !important; }
+  /* ordine discendente: evidenziata la freccia giù (▼, ::after) */
+  .file-table thead th.sorting_desc::after { color: var(--accent) !important; opacity: 1; }
+  .file-table thead th.sorting_desc::before { opacity: 0.3 !important; }
 
   /* ── LOGIN / AUTH ── */
   .auth-screen {
@@ -1907,7 +1944,7 @@
 
     return {
       reload: function (rows) {
-        const data = rows.map(r => Object.assign({ __raw: r }, r));
+        const data = rows.map((r, i) => Object.assign({ __raw: r, __idx: i }, r));
         dt.clear().rows.add(data).draw();
         return this;
       },
@@ -1938,7 +1975,7 @@
           render: f => '<input type="checkbox" data-id="' + f.id + '" ' + (f._selected ? 'checked' : '') + '>'
         },
         {
-          title: '#', orderable: false, className: 'dt-col-num',
+          title: '#', className: 'dt-col-num', data: f => f.__idx,
           render: function (row, type, meta) {
             return type === 'display' ? (meta.settings._iDisplayStart + meta.row + 1) : '';
           }

@@ -249,6 +249,11 @@ Nota: i file `FileMetadati` SdI non sono fatture e non producono righe; servono 
 - Per file con errore (corrotta/non leggibile): tooltip con messaggio di errore
 - Azioni per riga: pulsante **"Vedi XML"** (lente, presente solo quando è disponibile del contenuto XML) e pulsante di **eliminazione singola** (✕)
 - **Non è presente** un pulsante "Recupera": se un XML risulta corrotto in modo non riparabile automaticamente all'importazione (§4.2), l'utente lo riscarica dal portale dell'Agenzia delle Entrate/SdI e lo ricarica nel sistema
+- L'elenco è una **tabella interattiva** (DataTables) con:
+  - **Paginazione** a 25 righe per pagina con barra di navigazione fisso in basso
+  - **Ordinamento** per colonna cliccando sull'intestazione
+  - **Numerazione progressiva** delle righe (colonna `#`, continua tra le pagine)
+  - **Corpo della tabella scrollabile** verticalmente entro la finestra, con intestazione fissa in alto e paginazione ancorata al bordo inferiore della tabella
 
 ### 5.2bis Persistenza dei file sul filesystem (flusso previsto — non nel prototipo)
 
